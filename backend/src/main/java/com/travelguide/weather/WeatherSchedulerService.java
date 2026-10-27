@@ -15,6 +15,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
+/**
+ * 天气轮询与快照缓存。
+ *
+ * <p>定时拉取高德天气并保留最后一份成功结果（{@code AtomicReference}），
+ * 前端任何时候读到的都是「最近一次成功」的数据，不会因为一次失败就空掉。
+ * 快照带状态（UNCONFIGURED / FRESH / STALE / ERROR）和抓取时间，
+ * 前端据此决定是否提示「数据可能过期」。</p>
+ */
 @Service
 public class WeatherSchedulerService {
 
@@ -47,6 +55,19 @@ public class WeatherSchedulerService {
         ));
     }
 
+    /**
+     * 定时刷新天气快照（缓存前置：让前端任何时候来读都有数据，不必等第三方接口）。
+     *
+     * <p>快照状态：</p>
+     * <ul>
+     *   <li>{@code UNCONFIGURED} —— 没配高德 Key，构造时预设的初始快照；</li>
+     *   <li>{@code FRESH} —— 本次拉取成功，数据是新的；</li>
+     *   <li>{@code STALE} —— 本次失败，但手里还有上一次成功的数据，降级可用；</li>
+     *   <li>{@code ERROR} —— 从未成功过，forecasts 为空。</li>
+     * </ul>
+     * <p>{@code synchronized} 保证定时线程与请求线程不会读到写了一半的快照；
+     * 失败分支只更新状态与错误信息，绝不覆盖上一份成功数据。</p>
+     */
     @Scheduled(
             fixedDelayString = "${travel.weather.poll-interval-ms:600000}",
             initialDelayString = "${travel.weather.initial-delay-ms:5000}"
@@ -83,6 +104,8 @@ public class WeatherSchedulerService {
                 throw new IllegalStateException("高德天气返回状态异常");
             }
 
+            // 用 RestClient + JsonNode 逐字段取值：数据源单一、字段固定（日期、昼夜天气、
+            // 温度、风力共 8 个），为它建一套反序列化模型类不划算，是刻意的取舍。
             JsonNode forecast = body.path("forecasts").path(0);
             List<WeatherCast> casts = new ArrayList<>();
             forecast.path("casts").forEach(item -> casts.add(new WeatherCast(

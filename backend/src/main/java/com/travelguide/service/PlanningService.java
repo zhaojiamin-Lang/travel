@@ -46,6 +46,13 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * 行程规划核心服务。
+ *
+ * <p>负责从「一句话需求」到「可用行程」的全过程：写需求、补槽位、选景点、
+ * 排时间轴、算预算、做校验、存版本，以及后续的改需求/换点/回滚/查历史。
+ * 大模型只用来补字段和读自然语言，选点与排程的判定仍走本地规则，结果可复现。</p>
+ */
 @Service
 public class PlanningService {
 

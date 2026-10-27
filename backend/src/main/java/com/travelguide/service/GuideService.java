@@ -28,6 +28,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * 现场导游服务。
+ *
+ * <p>管理一次导游会话（当前景点、定位、问答）：上报定位后按球面距离找最近的行程景点
+ * 并给出置信度，低置信度让用户手选；讲解内容按景点模板生成，
+ * 追问优先交给 {@code AiGateway}，模型不可用时退回确定性回答，保证现场可用。</p>
+ */
 @Service
 public class GuideService {
 

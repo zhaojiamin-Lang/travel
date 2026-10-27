@@ -21,6 +21,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * 剩余路线重排器（纯计算，不落库）。
+ *
+ * <p>输入当前计划 + 一个扰动（景点闭馆 / 上一站延迟 N 分钟），输出「新计划 + 变更清单」：
+ * 从扰动点开始重排后续时间轴、按高德重算相邻路段通行时间、去掉因闭馆不可达的点，
+ * 已经过去的行程保持原样。由 {@code ReplanEventListener} 调用，结果存成待确认提案。</p>
+ */
 @Service
 public class RemainingRouteReplanner {
 
