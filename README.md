@@ -112,3 +112,13 @@ npm run build
 快速查看版：
 
 [后续待办（精简版）](./docs/后续待办-精简版.md)
+
+模块功能说明：
+
+[MODULES.md](./MODULES.md)
+
+配置 GitHub `origin` 后启用提交自动推送：
+
+```powershell
+git config core.hooksPath .githooks
+```

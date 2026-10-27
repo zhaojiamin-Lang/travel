@@ -1,0 +1,17 @@
+#!/bin/sh
+
+# Push the current branch after each local commit when an origin remote exists.
+# Set SKIP_AUTO_PUSH=1 to skip a single push without changing the hook.
+if [ "${SKIP_AUTO_PUSH:-0}" = "1" ]; then
+  exit 0
+fi
+
+branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null)" || exit 0
+remote="$(git config --get "branch.${branch}.remote" 2>/dev/null || printf 'origin')"
+
+if ! git remote get-url "$remote" >/dev/null 2>&1; then
+  printf 'post-commit: no remote configured, skipped push.\n'
+  exit 0
+fi
+
+git push "$remote" "$branch"
