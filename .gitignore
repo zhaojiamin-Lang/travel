@@ -21,6 +21,9 @@ frontend/vite.config.d.ts
 .vscode/
 *.iml
 
+# Agent workspace (local notes, not part of the app)
+.workbuddy/
+
 # OS
 .DS_Store
 Thumbs.db
