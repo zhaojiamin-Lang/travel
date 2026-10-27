@@ -1,5 +1,6 @@
 package com.travelguide.web;
 
+import org.springframework.context.support.DefaultMessageSourceResolvable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -26,7 +27,7 @@ public class ApiExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleValidation(MethodArgumentNotValidException exception) {
         String message = exception.getBindingResult().getFieldErrors().stream()
                 .findFirst()
-                .map(error -> error.getDefaultMessage())
+                .map(DefaultMessageSourceResolvable::getDefaultMessage)
                 .orElse("请求参数不合法");
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
                 "timestamp", Instant.now().toString(),

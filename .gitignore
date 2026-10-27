@@ -11,6 +11,8 @@ frontend/vite.config.d.ts
 
 # Local configuration
 .env
+.env.*
+*.env.properties
 *.log
 
 # IDE

@@ -13,11 +13,14 @@ import com.travelguide.web.ApiDtos.DayPlan;
 import com.travelguide.web.ApiDtos.DraftRequest;
 import com.travelguide.web.ApiDtos.DraftResponse;
 import com.travelguide.web.ApiDtos.MapPoint;
+import com.travelguide.web.ApiDtos.HistoryItem;
+import com.travelguide.web.ApiDtos.NaturalLanguageUpdateRequest;
 import com.travelguide.web.ApiDtos.PlanIssue;
 import com.travelguide.web.ApiDtos.PlanItem;
 import com.travelguide.web.ApiDtos.PlanView;
 import com.travelguide.web.ApiDtos.PoiView;
 import com.travelguide.web.ApiDtos.RequirementsUpdate;
+import com.travelguide.web.ApiDtos.SwapRequest;
 import com.travelguide.web.ApiDtos.TransitView;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -59,6 +62,7 @@ public class PlanningService {
     private final PoiMapper poiMapper;
     private final ObjectMapper objectMapper;
     private final AiGateway aiGateway;
+    private final AmapRouteService routeService;
 
     public PlanningService(
             PoiRepository poiRepository,
@@ -66,7 +70,8 @@ public class PlanningService {
             TripPlanRepository planRepository,
             PoiMapper poiMapper,
             ObjectMapper objectMapper,
-            AiGateway aiGateway
+            AiGateway aiGateway,
+            AmapRouteService routeService
     ) {
         this.poiRepository = poiRepository;
         this.requestRepository = requestRepository;
@@ -74,15 +79,22 @@ public class PlanningService {
         this.poiMapper = poiMapper;
         this.objectMapper = objectMapper;
         this.aiGateway = aiGateway;
+        this.routeService = routeService;
     }
 
     @Transactional
     public DraftResponse createDraft(DraftRequest request) {
+        return createDraft(request, null);
+    }
+
+    @Transactional
+    public DraftResponse createDraft(DraftRequest request, String ownerId) {
         String prompt = request.prompt().trim();
         List<PoiEntity> allPois = poiRepository.findAll();
         TripRequestEntity entity = new TripRequestEntity();
         entity.setId("req_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12));
         entity.setSessionId(blankToDefault(request.sessionId(), "anonymous"));
+        entity.setOwnerId(ownerId);
         entity.setRawPrompt(prompt);
         entity.setCity(resolveCity(prompt));
         entity.setDays(resolveDays(prompt));
@@ -93,13 +105,72 @@ public class PlanningService {
         entity.setNoSpicy(prompt.matches(".*(不吃辣|不能吃辣|清淡).*"));
         List<PoiEntity> mustSee = resolveMustSee(prompt, allPois);
         entity.setMustSee(String.join(",", mustSee.stream().map(PoiEntity::getId).toList()));
-        entity.setSummary(buildSummary(entity, mustSee));
         entity.setCreatedAt(LocalDateTime.now(SHANGHAI));
+        enrichWithAi(prompt, entity, allPois);
+        if (prompt.matches(".*(带父母|和爸妈|一家三口).*") && entity.getPeople() != null && entity.getPeople() < 3) {
+            entity.setPeople(3);
+        }
 
         if (entity.getDays() != null && entity.getStartDate() != null) {
             entity.setEndDate(entity.getStartDate().plusDays(entity.getDays() - 1L));
         }
+        entity.setSummary(buildSummary(entity, mustSeeEntities(entity)));
 
+        requestRepository.save(entity);
+        return toDraft(entity, allPois);
+    }
+
+    @Transactional
+    public DraftResponse updateFromNaturalLanguage(String requestId, NaturalLanguageUpdateRequest request) {
+        TripRequestEntity entity = requireRequest(requestId);
+        String message = request.message().trim();
+        Integer days = resolveDays(message);
+        if (days != null) {
+            entity.setDays(days);
+        }
+        Integer people = resolvePeopleStrict(message);
+        if (people != null) {
+            entity.setPeople(people);
+        }
+        BigDecimal budget = resolveBudget(message);
+        if (budget != null) {
+            entity.setBudget(budget);
+        }
+        LocalDate startDate = resolveStartDate(message);
+        if (startDate != null) {
+            entity.setStartDate(startDate);
+        }
+        if (message.matches(".*(轻松|慢一点|不想走太累|休闲).*")) {
+            entity.setPace("RELAXED");
+        } else if (message.matches(".*(紧凑|多去几个|多安排|特种兵).*")) {
+            entity.setPace("BALANCED");
+        }
+        if (message.matches(".*(可以吃辣|吃辣没关系).*")) {
+            entity.setNoSpicy(false);
+        } else if (message.matches(".*(不吃辣|清淡|不要辣).*")) {
+            entity.setNoSpicy(true);
+        }
+
+        List<PoiEntity> allPois = poiRepository.findAll();
+        LinkedHashSet<String> mustSeeIds = new LinkedHashSet<>(mustSeeEntities(entity).stream().map(PoiEntity::getId).toList());
+        for (PoiEntity candidate : resolveMustSee(message, allPois)) {
+            int nameIndex = Math.max(
+                    message.indexOf(candidate.getName()),
+                    candidate.getAliasName() == null ? -1 : message.indexOf(candidate.getAliasName())
+            );
+            String prefix = nameIndex > 0 ? message.substring(0, nameIndex) : "";
+            if (prefix.matches(".*(不去|排除|不想去).*")) {
+                mustSeeIds.remove(candidate.getId());
+            } else {
+                mustSeeIds.add(candidate.getId());
+            }
+        }
+        entity.setMustSee(String.join(",", mustSeeIds));
+        if (entity.getStartDate() != null && entity.getDays() != null) {
+            entity.setEndDate(entity.getStartDate().plusDays(entity.getDays() - 1L));
+        }
+        entity.setRawPrompt(entity.getRawPrompt() + "\n修改：" + message);
+        entity.setSummary(buildSummary(entity, mustSeeEntities(entity)));
         requestRepository.save(entity);
         return toDraft(entity, allPois);
     }
@@ -242,10 +313,14 @@ public class PlanningService {
         boolean passed = issues.stream().noneMatch(issue -> "ERROR".equals(issue.severity()));
         String title = "上海 · " + ("RELAXED".equals(request.getPace()) ? "松弛" : "城市") + toChineseDays(request.getDays()) + "漫游";
         String subtitle = "从江岸天际线走到梧桐街区，把时间留给真正值得停留的地方。";
+        int nextVersion = planRepository.findByRequestIdOrderByVersionDesc(requestId).stream()
+                .findFirst()
+                .map(existing -> existing.getVersion() + 1)
+                .orElse(1);
         PlanView plan = new PlanView(
                 "plan_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12),
                 request.getId(),
-                1,
+                nextVersion,
                 title,
                 subtitle,
                 "上海",
@@ -264,6 +339,150 @@ public class PlanningService {
         );
         persistPlan(plan);
         return plan;
+    }
+
+    public List<PlanView> listVersions(String requestId) {
+        requireRequest(requestId);
+        return planRepository.findByRequestIdOrderByVersionDesc(requestId).stream()
+                .map(entity -> {
+                    try {
+                        return objectMapper.readValue(entity.getPlanJson(), PlanView.class);
+                    } catch (JsonProcessingException exception) {
+                        throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "行程数据读取失败");
+                    }
+                })
+                .toList();
+    }
+
+    public List<HistoryItem> history(String ownerId) {
+        if (ownerId == null) {
+            return List.of();
+        }
+        return requestRepository.findByOwnerIdOrderByCreatedAtDesc(ownerId).stream()
+                .map(request -> {
+                    var plans = planRepository.findByRequestIdOrderByVersionDesc(request.getId());
+                    return new HistoryItem(
+                            request.getId(),
+                            plans.isEmpty() ? null : plans.get(0).getId(),
+                            request.getSummary(),
+                            request.getStartDate(),
+                            request.getCreatedAt(),
+                            plans.size()
+                    );
+                })
+                .toList();
+    }
+
+    @Transactional
+    public PlanView swapPoi(String planId, SwapRequest request) {
+        PlanView base = getPlan(planId);
+        PoiEntity replacement = poiRepository.findById(request.replacementPoiId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "替换景点不存在"));
+        if (base.mapPoints().stream().anyMatch(point -> point.poiId().equals(replacement.getId()))) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "该景点已经在行程中");
+        }
+
+        boolean found = false;
+        String replacedName = null;
+        List<DayPlan> newDays = new ArrayList<>();
+        for (DayPlan day : base.dayPlans()) {
+            List<PlanItem> newItems = new ArrayList<>();
+            for (PlanItem item : day.items()) {
+                if (item.id().equals(request.itemId())) {
+                    if (!"POI".equals(item.type())) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "只能替换景点项目");
+                    }
+                    found = true;
+                    replacedName = item.name();
+                    newItems.add(new PlanItem(
+                            item.id(),
+                            "POI",
+                            replacement.getId(),
+                            replacement.getName(),
+                            shortName(replacement.getName()),
+                            replacement.getArea(),
+                            item.startTime(),
+                            item.endTime(),
+                            item.durationMinutes(),
+                            replacement.getTicketPrice().multiply(BigDecimal.valueOf(base.people())),
+                            replacement.getSummary() + "（沿用原时间窗）",
+                            replacement.getSourceName(),
+                            replacement.getSourceUrl(),
+                            replacement.getAccent(),
+                            replacement.getLatitude(),
+                            replacement.getLongitude(),
+                            item.transitFromPrevious()
+                    ));
+                } else {
+                    newItems.add(item);
+                }
+            }
+            newDays.add(new DayPlan(day.dayNumber(), day.date(), day.label(), day.title(), day.summary(), newItems));
+        }
+        if (!found) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "行程项目不存在");
+        }
+
+        List<PlanIssue> issues = new ArrayList<>(base.issues());
+        issues.add(new PlanIssue(
+                "POI_REPLACED",
+                "INFO",
+                "已将“" + replacedName + "”替换为“" + replacement.getName() + "”。",
+                "交通时间仍沿用当前估算，请重新生成或现场确认路线。"
+        ));
+        PlanView swapped = rebuildPlan(base, newDays, issues, "替换景点 · " + replacement.getName());
+        persistPlan(swapped);
+        return swapped;
+    }
+
+    public List<PoiView> alternatives(String planId, String itemId) {
+        PlanView plan = getPlan(planId);
+        PlanItem target = plan.dayPlans().stream()
+                .flatMap(day -> day.items().stream())
+                .filter(item -> item.id().equals(itemId))
+                .findFirst()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "行程项目不存在"));
+        Set<String> used = plan.mapPoints().stream().map(MapPoint::poiId).collect(java.util.stream.Collectors.toSet());
+        return poiRepository.findAll().stream()
+                .filter(poi -> !used.contains(poi.getId()))
+                .sorted(Comparator
+                        .comparing((PoiEntity poi) -> !poi.getArea().equals(target.area()))
+                        .thenComparingDouble(poi -> distance(
+                                target.latitude(), target.longitude(), poi.getLatitude(), poi.getLongitude())))
+                .limit(5)
+                .map(poiMapper::toView)
+                .toList();
+    }
+
+    @Transactional
+    public PlanView restoreVersion(String planId) {
+        PlanView source = getPlan(planId);
+        int nextVersion = planRepository.findByRequestIdOrderByVersionDesc(source.requestId()).stream()
+                .findFirst()
+                .map(existing -> existing.getVersion() + 1)
+                .orElse(1);
+        PlanView restored = new PlanView(
+                "plan_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12),
+                source.requestId(),
+                nextVersion,
+                source.title(),
+                source.subtitle(),
+                source.city(),
+                source.startDate(),
+                source.days(),
+                source.people(),
+                source.budget(),
+                source.estimatedCost(),
+                source.pace(),
+                source.mustSee(),
+                source.dayPlans(),
+                source.issues(),
+                source.passed(),
+                source.mapPoints(),
+                "恢复版本 v" + source.version()
+        );
+        persistPlan(restored);
+        return restored;
     }
 
     public PlanView getPlan(String planId) {
@@ -291,6 +510,106 @@ public class PlanningService {
                 .map(byId::get)
                 .filter(poi -> poi != null)
                 .toList();
+    }
+
+    private void enrichWithAi(String prompt, TripRequestEntity entity, List<PoiEntity> allPois) {
+        if (!aiGateway.isEnabled()) {
+            return;
+        }
+        try {
+            String instructions = """
+                    你是旅行需求结构化抽取器。只输出一个 JSON 对象，不要 Markdown。
+                    字段：city, days, startDate, people, budget, pace, noSpicy, mustSee。
+                    pace 只能是 RELAXED 或 BALANCED；日期格式 YYYY-MM-DD；未知字段输出 null。
+                    mustSee 只能从给定景点名称中选择。
+                    """;
+            String knownPois = allPois.stream().map(PoiEntity::getName).collect(java.util.stream.Collectors.joining("、"));
+            String response = aiGateway.complete(instructions, "景点列表：" + knownPois + "\n用户需求：" + prompt);
+            com.fasterxml.jackson.databind.JsonNode json = objectMapper.readTree(stripCodeFence(response));
+            if (json.hasNonNull("days") && json.path("days").asInt() >= 1 && json.path("days").asInt() <= 3) {
+                entity.setDays(json.path("days").asInt());
+            }
+            if (json.hasNonNull("startDate")) {
+                try {
+                    entity.setStartDate(LocalDate.parse(json.path("startDate").asText()));
+                } catch (RuntimeException ignored) {
+                    // Keep the rule-based extraction when the model returns an invalid date.
+                }
+            }
+            if (json.hasNonNull("people") && json.path("people").asInt() >= 1 && json.path("people").asInt() <= 6) {
+                entity.setPeople(json.path("people").asInt());
+            }
+            if (json.hasNonNull("budget") && json.path("budget").decimalValue().signum() > 0) {
+                entity.setBudget(json.path("budget").decimalValue());
+            }
+            if (json.hasNonNull("pace") && Set.of("RELAXED", "BALANCED").contains(json.path("pace").asText())) {
+                entity.setPace(json.path("pace").asText());
+            }
+            if (json.hasNonNull("noSpicy")) {
+                entity.setNoSpicy(json.path("noSpicy").asBoolean());
+            }
+            if (json.has("mustSee") && json.path("mustSee").isArray()) {
+                List<String> names = new ArrayList<>();
+                json.path("mustSee").forEach(node -> names.add(node.asText()));
+                List<PoiEntity> aiMustSee = names.stream()
+                        .map(name -> findPoi(name, allPois))
+                        .filter(poi -> poi != null && mentionsPoi(prompt, poi))
+                        .toList();
+                if (!aiMustSee.isEmpty()) {
+                    entity.setMustSee(aiMustSee.stream().map(PoiEntity::getId).distinct().collect(java.util.stream.Collectors.joining(",")));
+                }
+            }
+        } catch (RuntimeException | JsonProcessingException ignored) {
+            // The deterministic extractor remains the safe fallback.
+        }
+    }
+
+    private PlanView rebuildPlan(
+            PlanView base,
+            List<DayPlan> newDays,
+            List<PlanIssue> issues,
+            String generatedBy
+    ) {
+        BigDecimal estimated = newDays.stream()
+                .flatMap(day -> day.items().stream())
+                .map(PlanItem::cost)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        List<MapPoint> points = new ArrayList<>();
+        int order = 1;
+        for (DayPlan day : newDays) {
+            for (PlanItem item : day.items()) {
+                if ("POI".equals(item.type()) && item.poiId() != null) {
+                    points.add(new MapPoint(
+                            item.poiId(), item.name(), item.latitude(), item.longitude(), day.dayNumber(), order++
+                    ));
+                }
+            }
+        }
+        boolean passed = issues.stream().noneMatch(issue -> "ERROR".equals(issue.severity()));
+        int nextVersion = planRepository.findByRequestIdOrderByVersionDesc(base.requestId()).stream()
+                .findFirst()
+                .map(existing -> existing.getVersion() + 1)
+                .orElse(1);
+        return new PlanView(
+                "plan_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12),
+                base.requestId(),
+                nextVersion,
+                base.title(),
+                base.subtitle(),
+                base.city(),
+                base.startDate(),
+                base.days(),
+                base.people(),
+                base.budget(),
+                estimated,
+                base.pace(),
+                base.mustSee(),
+                newDays,
+                issues,
+                passed,
+                points,
+                generatedBy
+        );
     }
 
     private void persistPlan(PlanView plan) {
@@ -321,10 +640,12 @@ public class PlanningService {
         boolean lunchAdded = false;
         int sequence = 1;
         PlanItem previous = null;
+        PoiEntity previousPoi = null;
 
         for (PoiEntity poi : pois) {
             int duration = poi.getDurationMinutes() == null ? 60 : poi.getDurationMinutes();
-            int plannedTransit = previous == null ? 0 : 24;
+            AmapRouteService.RouteEstimate route = previousPoi == null ? null : routeService.between(previousPoi, poi);
+            int plannedTransit = route == null ? 0 : route.minutes();
             boolean crossesLunch =
                     !lunchAdded
                     && cursor.isBefore(LocalTime.of(13, 30))
@@ -345,7 +666,7 @@ public class PlanningService {
                 lunchAdded = true;
                 previous = lunch;
             }
-            int transitMinutes = previous == null ? 0 : (("MEAL".equals(previous.type())) ? 15 : 24);
+            int transitMinutes = route == null ? 0 : route.minutes();
             cursor = cursor.plusMinutes(transitMinutes);
             LocalTime end = cursor.plusMinutes(duration);
             if (end.isAfter(LocalTime.of(17, 30)) && pois.size() > 2) {
@@ -375,10 +696,11 @@ public class PlanningService {
                     poi.getAccent(),
                     poi.getLatitude(),
                     poi.getLongitude(),
-                    previous == null ? null : new TransitView("WALK", "步行 / 地铁衔接", transitMinutes)
+                    route == null ? null : new TransitView(route.mode(), route.label(), transitMinutes)
             );
             items.add(item);
             previous = item;
+            previousPoi = poi;
             cursor = end;
         }
 
@@ -530,9 +852,24 @@ public class PlanningService {
     }
 
     private Integer resolvePeople(String prompt) {
+        if (prompt.matches(".*(一个人|独自|自己一个人).*")) {
+            return 1;
+        }
+        if (prompt.matches(".*(情侣|两个人|二人).*")) {
+            return 2;
+        }
+        if (prompt.matches(".*(带父母|和爸妈|一家三口).*")) {
+            return 3;
+        }
         Pattern pattern = Pattern.compile("([1-9]|[一两二三四五六])\\s*(?:人|个人)");
         Matcher matcher = pattern.matcher(prompt);
         return matcher.find() ? chineseNumber(matcher.group(1)) : 2;
+    }
+
+    private Integer resolvePeopleStrict(String prompt) {
+        Pattern pattern = Pattern.compile("([1-9]|[一两二三四五六])\\s*(?:人|个人)");
+        Matcher matcher = pattern.matcher(prompt);
+        return matcher.find() ? chineseNumber(matcher.group(1)) : null;
     }
 
     private BigDecimal resolveBudget(String prompt) {
@@ -542,12 +879,30 @@ public class PlanningService {
     }
 
     private LocalDate resolveStartDate(String prompt) {
+        LocalDate today = LocalDate.now(SHANGHAI);
+        if (prompt.contains("后天")) {
+            return today.plusDays(2);
+        }
+        if (prompt.contains("明天")) {
+            return today.plusDays(1);
+        }
+        if (prompt.contains("下周末")) {
+            int daysUntilSaturday = (6 - today.getDayOfWeek().getValue() + 7) % 7;
+            return today.plusDays(daysUntilSaturday == 0 ? 7 : daysUntilSaturday);
+        }
+        if (prompt.contains("周末")) {
+            int daysUntilSaturday = (6 - today.getDayOfWeek().getValue() + 7) % 7;
+            return today.plusDays(daysUntilSaturday);
+        }
+        if (prompt.contains("下周")) {
+            int daysUntilMonday = (8 - today.getDayOfWeek().getValue()) % 7;
+            return today.plusDays(daysUntilMonday == 0 ? 7 : daysUntilMonday);
+        }
         Pattern pattern = Pattern.compile("(?:(\\d{4})年)?(\\d{1,2})月(\\d{1,2})日");
         Matcher matcher = pattern.matcher(prompt);
         if (!matcher.find()) {
             return null;
         }
-        LocalDate today = LocalDate.now(SHANGHAI);
         int year = matcher.group(1) == null ? today.getYear() : Integer.parseInt(matcher.group(1));
         LocalDate date = LocalDate.of(year, Integer.parseInt(matcher.group(2)), Integer.parseInt(matcher.group(3)));
         if (matcher.group(1) == null && date.isBefore(today.minusDays(1))) {
@@ -578,6 +933,25 @@ public class PlanningService {
                         || (poi.getAliasName() != null && poi.getAliasName().equals(value)))
                 .findFirst()
                 .orElse(null);
+    }
+
+    private boolean mentionsPoi(String prompt, PoiEntity poi) {
+        return prompt.contains(poi.getName())
+                || (poi.getAliasName() != null && !poi.getAliasName().isBlank() && prompt.contains(poi.getAliasName()));
+    }
+
+    private String stripCodeFence(String value) {
+        return value.replaceFirst("^```(?:json)?\\s*", "").replaceFirst("\\s*```$", "").trim();
+    }
+
+    private double distance(double lat1, double lng1, double lat2, double lng2) {
+        double earth = 6371000;
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLng = Math.toRadians(lng2 - lng1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        return earth * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
     private String buildTitle(String generated) {

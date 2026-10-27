@@ -1,9 +1,17 @@
 server:
   port: 8080
+  servlet:
+    session:
+      timeout: 30d
+      cookie:
+        http-only: true
+        same-site: lax
 
 spring:
   application:
     name: travel-guide-mvp
+  config:
+    import: optional:file:./.env.properties
   datasource:
     url: jdbc:h2:file:./data/travel-guide;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;AUTO_SERVER=TRUE
     username: sa
@@ -16,15 +24,19 @@ spring:
     properties:
       hibernate:
         format_sql: true
+  flyway:
+    enabled: false
   jackson:
     default-property-inclusion: non_null
 
 travel:
   ai:
     api-key: ${TRAVEL_AI_API_KEY:}
-    model: ${TRAVEL_AI_MODEL:gpt-4o-mini}
+    model: ${TRAVEL_AI_MODEL:qwen-plus}
+    base-url: ${TRAVEL_AI_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode}
   map:
     amap-key: ${AMAP_WEB_KEY:}
+    amap-service-key: ${AMAP_WEB_SERVICE_KEY:}
 
 logging:
   level:

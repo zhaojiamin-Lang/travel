@@ -2,7 +2,6 @@ package com.travelguide.domain;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
-import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 
 import java.math.BigDecimal;
@@ -17,8 +16,9 @@ public class TripRequestEntity {
     private String id;
 
     private String sessionId;
+    private String ownerId;
 
-    @Lob
+    @jakarta.persistence.Column(columnDefinition = "text")
     private String rawPrompt;
 
     private String city;
@@ -30,6 +30,7 @@ public class TripRequestEntity {
     private String pace;
     private Boolean noSpicy;
     private String mustSee;
+    @jakarta.persistence.Column(columnDefinition = "text")
     private String summary;
     private LocalDateTime createdAt;
 
@@ -51,6 +52,14 @@ public class TripRequestEntity {
 
     public String getRawPrompt() {
         return rawPrompt;
+    }
+
+    public String getOwnerId() {
+        return ownerId;
+    }
+
+    public void setOwnerId(String ownerId) {
+        this.ownerId = ownerId;
     }
 
     public void setRawPrompt(String rawPrompt) {

@@ -3,7 +3,6 @@ package com.travelguide.domain;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
-import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 
 import java.math.BigDecimal;
@@ -30,13 +29,13 @@ public class PoiEntity {
     private String tags;
     private String accent;
 
-    @Lob
+    @Column(columnDefinition = "text")
     private String summary;
 
-    @Lob
+    @Column(columnDefinition = "text")
     private String history;
 
-    @Lob
+    @Column(columnDefinition = "text")
     private String guideText;
 
     private String sourceName;

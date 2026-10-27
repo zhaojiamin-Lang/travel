@@ -7,4 +7,6 @@ import java.util.List;
 
 public interface TripPlanRepository extends JpaRepository<TripPlanEntity, String> {
     List<TripPlanEntity> findByRequestIdOrderByVersionDesc(String requestId);
+
+    long countByRequestId(String requestId);
 }

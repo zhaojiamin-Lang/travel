@@ -16,11 +16,12 @@ public class AiGateway {
 
     public AiGateway(
             @Value("${travel.ai.api-key:}") String apiKey,
-            @Value("${travel.ai.model:gpt-4o-mini}") String model
+            @Value("${travel.ai.model:qwen-plus}") String model,
+            @Value("${travel.ai.base-url:https://api.openai.com}") String baseUrl
     ) {
         this.enabled = apiKey != null && !apiKey.isBlank();
         if (enabled) {
-            OpenAiApi api = new OpenAiApi(apiKey);
+            OpenAiApi api = new OpenAiApi(baseUrl, apiKey);
             OpenAiChatOptions options = OpenAiChatOptions.builder()
                     .model(model)
                     .temperature(0.35)

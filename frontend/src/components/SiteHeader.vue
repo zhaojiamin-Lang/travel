@@ -28,6 +28,7 @@ defineEmits<{
       <a href="#inspiration">发现灵感</a>
       <a href="#how-it-works">规划方式</a>
       <a href="#guide">现场导游</a>
+      <RouterLink to="/account">账户与历史</RouterLink>
     </nav>
 
     <button class="site-header__action" type="button" @click="$emit('action')">

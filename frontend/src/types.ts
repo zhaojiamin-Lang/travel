@@ -151,3 +151,19 @@ export interface GuideSession {
   status: string
   currentPoi?: GuideContent
 }
+
+export interface User {
+  id: string
+  email?: string
+  displayName: string
+  guest: boolean
+}
+
+export interface HistoryItem {
+  requestId: string
+  latestPlanId?: string
+  summary: string
+  startDate?: string
+  createdAt: string
+  planCount: number
+}

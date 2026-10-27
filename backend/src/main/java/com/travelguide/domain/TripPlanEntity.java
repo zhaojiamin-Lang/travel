@@ -2,13 +2,19 @@ package com.travelguide.domain;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
-import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "trip_plan")
+@Table(
+        name = "trip_plan",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_trip_plan_request_version",
+                columnNames = {"request_id", "version"}
+        )
+)
 public class TripPlanEntity {
 
     @Id
@@ -17,10 +23,10 @@ public class TripPlanEntity {
     private Integer version;
     private Boolean passed;
 
-    @Lob
+    @jakarta.persistence.Column(columnDefinition = "text")
     private String planJson;
 
-    @Lob
+    @jakarta.persistence.Column(columnDefinition = "text")
     private String issuesJson;
 
     private LocalDateTime createdAt;

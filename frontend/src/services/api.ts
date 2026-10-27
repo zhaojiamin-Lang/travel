@@ -2,9 +2,11 @@ import type {
   Bootstrap,
   Draft,
   GuideSession,
+  HistoryItem,
   LocationResult,
   Plan,
   Poi,
+  User,
 } from '../types'
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api'
@@ -12,6 +14,7 @@ const API_BASE = import.meta.env.VITE_API_BASE || '/api'
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
+    credentials: 'same-origin',
     headers: {
       'Content-Type': 'application/json',
       ...(init?.headers || {}),
@@ -51,6 +54,32 @@ export const api = {
     })
   },
 
+  currentUser() {
+    return request<User>('/auth/me')
+  },
+
+  register(payload: { email: string; password: string; displayName: string }) {
+    return request<User>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  },
+
+  login(payload: { email: string; password: string }) {
+    return request<User>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  },
+
+  logout() {
+    return request<{ success: boolean }>('/auth/logout', { method: 'POST' })
+  },
+
+  history() {
+    return request<HistoryItem[]>('/history')
+  },
+
   updateRequirements(
     requestId: string,
     payload: {
@@ -74,8 +103,34 @@ export const api = {
     })
   },
 
+  updateFromNaturalLanguage(requestId: string, message: string) {
+    return request<Draft>(`/trips/${requestId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    })
+  },
+
   getPlan(planId: string) {
     return request<Plan>(`/plans/${planId}`)
+  },
+
+  getVersions(requestId: string) {
+    return request<Plan[]>(`/trips/${requestId}/plans`)
+  },
+
+  getAlternatives(planId: string, itemId: string) {
+    return request<Poi[]>(`/plans/${planId}/items/${itemId}/alternatives`)
+  },
+
+  swapPoi(planId: string, itemId: string, replacementPoiId: string) {
+    return request<Plan>(`/plans/${planId}/swap`, {
+      method: 'POST',
+      body: JSON.stringify({ itemId, replacementPoiId }),
+    })
+  },
+
+  restoreVersion(planId: string) {
+    return request<Plan>(`/plans/${planId}/restore`, { method: 'POST' })
   },
 
   createGuide(planId: string) {

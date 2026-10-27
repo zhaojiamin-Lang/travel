@@ -67,6 +67,11 @@ onMounted(async () => {
     const planId = String(route.params.planId)
     plan.value = tripStore.plan?.id === planId ? tripStore.plan : await api.getPlan(planId)
     tripStore.loadPlan(plan.value)
+    if (!tripStore.bootstrap) {
+      api.bootstrap().then((data) => {
+        tripStore.bootstrap = data
+      })
+    }
 
     const storedSessionId = localStorage.getItem('guide-session-id')
     if (storedSessionId) {
@@ -93,7 +98,19 @@ onMounted(async () => {
       await selectPoi(initialPoi)
     }
   } catch (reason) {
-    error.value = reason instanceof Error ? reason.message : '导游暂时无法打开'
+    const cachedPlan = tripStore.cachedPlan(String(route.params.planId))
+    if (cachedPlan) {
+      plan.value = cachedPlan
+      const fallbackPoi =
+        (typeof route.query.poi === 'string' && route.query.poi) ||
+        cachedPlan.mapPoints[0]?.poiId
+      if (fallbackPoi) {
+        restoreOfflineGuide(fallbackPoi)
+      }
+      error.value = '当前为离线导游缓存，互动问答将在联网后恢复。'
+    } else {
+      error.value = reason instanceof Error ? reason.message : '导游暂时无法打开'
+    }
   } finally {
     loading.value = false
   }
@@ -104,7 +121,11 @@ onBeforeUnmount(() => {
 })
 
 async function selectPoi(poiId: string) {
-  if (!session.value || selecting.value) return
+  if (selecting.value) return
+  if (!session.value) {
+    restoreOfflineGuide(poiId)
+    return
+  }
   selecting.value = true
   error.value = ''
   stopSpeaking()
@@ -115,10 +136,12 @@ async function selectPoi(poiId: string) {
     messages.value = []
     question.value = ''
     if (selected.currentPoi) {
+      localStorage.setItem(`guide-content-${selected.currentPoi.poiId}`, JSON.stringify(selected.currentPoi))
       locationMessage.value = `正在为您讲解 ${selected.currentPoi.name}`
       locationStatus.value = 'ready'
     }
   } catch (reason) {
+    restoreOfflineGuide(poiId)
     error.value = reason instanceof Error ? reason.message : '无法加载景点资料'
   } finally {
     selecting.value = false
@@ -230,7 +253,14 @@ function stopSpeaking() {
 
 async function ask(value?: string) {
   const text = (value ?? question.value).trim()
-  if (!text || !session.value || asking.value) return
+  if (!text || asking.value) return
+  if (!session.value) {
+    messages.value.push({ role: 'user', text })
+    messages.value.push({ role: 'guide', text: '当前处于离线状态，可以先阅读已缓存的景点讲解。联网后我再继续回答问题。' })
+    question.value = ''
+    await scrollChat()
+    return
+  }
   messages.value.push({ role: 'user', text })
   question.value = ''
   asking.value = true
@@ -258,6 +288,40 @@ function goBack() {
   } else {
     router.push('/')
   }
+}
+
+function restoreOfflineGuide(poiId: string) {
+  const cached = localStorage.getItem(`guide-content-${poiId}`)
+  if (cached) {
+    try {
+      current.value = JSON.parse(cached) as GuideContent
+      locationMessage.value = '已加载离线讲解'
+      locationStatus.value = 'ready'
+      return
+    } catch {
+      // Continue to a lightweight plan item fallback.
+    }
+  }
+  const item = planPois.value.find((poi) => poi.poiId === poiId)
+  if (!item) return
+  current.value = {
+    poiId,
+    name: item.name,
+    area: item.area,
+    eyebrow: '离线 · 已保存的行程',
+    narrative: item.note,
+    history: '当前处于离线状态，联网后可查看完整讲解与来源。',
+    opening: '离线时暂不展示实时开放信息',
+    ticket: `参考费用 ¥${item.cost}`,
+    sourceName: item.sourceName,
+    sourceUrl: item.sourceUrl,
+    confidence: 'CACHED',
+    latitude: item.latitude,
+    longitude: item.longitude,
+    nearby: [],
+  }
+  locationMessage.value = '已加载行程中的离线简介'
+  locationStatus.value = 'ready'
 }
 
 function confidenceLabel(value: number) {
@@ -327,6 +391,18 @@ function poiAccent(index: number) {
           >
             <span>{{ candidate.poi.name }}</span>
             <small>{{ Math.round(candidate.distanceMeters) }}m · {{ confidenceLabel(candidate.confidence) }}</small>
+          </button>
+        </div>
+
+        <div v-if="!session && planPois.length" class="offline-poi-list">
+          <button
+            v-for="poi in planPois"
+            :key="poi.poiId"
+            type="button"
+            :class="{ active: current?.poiId === poi.poiId }"
+            @click="selectPoi(poi.poiId!)"
+          >
+            {{ poi.name }}
           </button>
         </div>
 
@@ -692,6 +768,34 @@ function poiAccent(index: number) {
 .candidate-list button small {
   color: rgba(255, 255, 255, 0.45);
   font-size: 7px;
+}
+
+.offline-poi-list {
+  position: absolute;
+  top: 174px;
+  right: 24px;
+  left: 24px;
+  z-index: 6;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+}
+
+.offline-poi-list button {
+  min-width: max-content;
+  padding: 8px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(18, 55, 42, 0.72);
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 8px;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+}
+
+.offline-poi-list button.active {
+  border-color: rgba(238, 185, 117, 0.55);
+  color: #fff;
 }
 
 .map-controls {

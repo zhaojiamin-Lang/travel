@@ -13,20 +13,26 @@ import {
   ExternalLink,
   Footprints,
   Gauge,
+  History,
   Info,
+  Layers3,
   Map as MapIcon,
   MapPin,
   Navigation,
+  RefreshCw,
+  RotateCcw,
   Route,
+  Shuffle,
   Sparkles,
   UserRound,
   WalletCards,
+  X,
 } from 'lucide-vue-next'
 import RouteMap from '../components/RouteMap.vue'
 import SiteHeader from '../components/SiteHeader.vue'
 import { api } from '../services/api'
 import { useTripStore } from '../services/tripStore'
-import type { DayPlan, Plan, PlanItem } from '../types'
+import type { DayPlan, Plan, PlanItem, Poi } from '../types'
 
 const route = useRoute()
 const router = useRouter()
@@ -35,6 +41,15 @@ const loading = ref(true)
 const error = ref('')
 const plan = ref<Plan | null>(null)
 const activeDayNumber = ref(1)
+const versions = ref<Plan[]>([])
+const versionsOpen = ref(false)
+const refineText = ref('')
+const refining = ref(false)
+const refreshLoading = ref(false)
+const swapTarget = ref<PlanItem | null>(null)
+const alternatives = ref<Poi[]>([])
+const swapping = ref(false)
+const feedback = ref('')
 
 const activeDay = computed<DayPlan | undefined>(() => {
   return plan.value?.dayPlans.find((day) => day.dayNumber === activeDayNumber.value)
@@ -52,8 +67,15 @@ const poiCount = computed(() => {
 onMounted(async () => {
   try {
     const planId = String(route.params.planId)
-    plan.value = tripStore.plan?.id === planId ? tripStore.plan : await api.getPlan(planId)
+    try {
+      plan.value = tripStore.plan?.id === planId ? tripStore.plan : await api.getPlan(planId)
+    } catch (requestError) {
+      plan.value = tripStore.cachedPlan(planId)
+      if (!plan.value) throw requestError
+      feedback.value = '当前为本地缓存的行程，动态信息可能不是最新。'
+    }
     tripStore.loadPlan(plan.value)
+    versions.value = await api.getVersions(plan.value.requestId).catch(() => [plan.value as Plan])
     if (!tripStore.bootstrap) {
       api.bootstrap().then((data) => {
         tripStore.bootstrap = data
@@ -87,6 +109,83 @@ function itemInitial(item: PlanItem) {
 
 function stopNumber(index: number) {
   return activeDay.value?.items.slice(0, index + 1).filter((item) => item.type === 'POI').length || 1
+}
+
+function applyPlan(next: Plan) {
+  plan.value = next
+  tripStore.rememberPlan(next)
+  activeDayNumber.value = Math.min(activeDayNumber.value, next.days)
+  router.replace({ name: 'plan', params: { planId: next.id } })
+  versions.value = [next, ...versions.value.filter((version) => version.id !== next.id)]
+}
+
+async function openVersions() {
+  if (!plan.value) return
+  versionsOpen.value = true
+  versions.value = await api.getVersions(plan.value.requestId).catch(() => versions.value)
+}
+
+async function restoreVersion(version: Plan) {
+  if (!plan.value || refreshLoading.value) return
+  refreshLoading.value = true
+  try {
+    const restored = await api.restoreVersion(version.id)
+    applyPlan(restored)
+    versionsOpen.value = false
+    feedback.value = `已恢复版本 v${version.version}，并创建新的 v${restored.version}。`
+  } catch (reason) {
+    error.value = reason instanceof Error ? reason.message : '版本恢复失败'
+  } finally {
+    refreshLoading.value = false
+  }
+}
+
+async function refinePlan() {
+  if (!plan.value || !refineText.value.trim() || refining.value) return
+  refining.value = true
+  error.value = ''
+  try {
+    const updated = await api.updateFromNaturalLanguage(plan.value.requestId, refineText.value)
+    if (updated.missingFields.length) {
+      error.value = '还需要补充：' + updated.missingFields.join('、')
+      return
+    }
+    const next = await api.generatePlan(updated.requestId)
+    applyPlan(next)
+    refineText.value = ''
+    versions.value = await api.getVersions(next.requestId)
+    feedback.value = '已根据你的修改生成新版本。'
+  } catch (reason) {
+    error.value = reason instanceof Error ? reason.message : '修改行程失败'
+  } finally {
+    refining.value = false
+  }
+}
+
+async function openSwap(item: PlanItem) {
+  if (!plan.value || !item.poiId) return
+  swapTarget.value = item
+  alternatives.value = []
+  try {
+    alternatives.value = await api.getAlternatives(plan.value.id, item.id)
+  } catch (reason) {
+    error.value = reason instanceof Error ? reason.message : '没有找到可替换景点'
+  }
+}
+
+async function replacePoi(poi: Poi) {
+  if (!plan.value || !swapTarget.value || swapping.value) return
+  swapping.value = true
+  try {
+    const next = await api.swapPoi(plan.value.id, swapTarget.value.id, poi.id)
+    applyPlan(next)
+    swapTarget.value = null
+    feedback.value = `已将当前位置替换为 ${poi.name}。`
+  } catch (reason) {
+    error.value = reason instanceof Error ? reason.message : '替换失败'
+  } finally {
+    swapping.value = false
+  }
 }
 
 async function startGuide(poiId?: string) {
@@ -189,9 +288,21 @@ function goHome() {
           <Info :size="17" />
           <span>{{ plan.issues.find((issue) => issue.severity !== 'INFO')?.message }}</span>
         </div>
+        <div v-if="feedback" class="feedback-banner">
+          <CheckCircle2 :size="16" />
+          <span>{{ feedback }}</span>
+          <button type="button" aria-label="关闭提示" @click="feedback = ''"><X :size="14" /></button>
+        </div>
 
         <div class="plan-layout">
           <section class="itinerary">
+            <div class="plan-toolbar">
+              <button type="button" @click="openVersions">
+                <History :size="15" /> 版本历史
+                <span>v{{ plan.version }}</span>
+              </button>
+              <span>{{ versions.length }} 个版本保留</span>
+            </div>
             <div class="day-tabs" role="tablist" aria-label="选择行程日期">
               <button
                 v-for="day in plan.dayPlans"
@@ -274,6 +385,9 @@ function goHome() {
                           <button type="button" @click="startGuide(item.poiId)">
                             <Navigation :size="14" /> 在这里开始讲解
                           </button>
+                          <button type="button" @click="openSwap(item)">
+                            <Shuffle :size="14" /> 换一个
+                          </button>
                           <a
                             v-if="item.sourceUrl"
                             :href="item.sourceUrl"
@@ -324,6 +438,25 @@ function goHome() {
               <p>已按 {{ plan.people }} 人估算门票、餐饮与市内交通。</p>
             </section>
 
+            <section class="refine-card">
+              <div class="panel-heading">
+                <span><RefreshCw :size="16" /> 调整这份行程</span>
+                <small>生成新版本</small>
+              </div>
+              <p>直接说，例如“第二天轻松一点”或“预算改成 2800”。</p>
+              <form @submit.prevent="refinePlan">
+                <input v-model="refineText" placeholder="写下你的调整..." maxlength="120" />
+                <button type="submit" :disabled="refining || !refineText.trim()">
+                  <span v-if="refining" class="spinner"></span>
+                  <ArrowRight v-else :size="16" />
+                </button>
+              </form>
+              <div class="refine-chips">
+                <button type="button" @click="refineText = '第二天轻松一点'">第二天轻松点</button>
+                <button type="button" @click="refineText = '预算改成 2800 元'">降低预算</button>
+              </div>
+            </section>
+
             <section class="verified-card">
               <div class="verified-card__icon">
                 <CheckCircle2 :size="22" />
@@ -359,6 +492,74 @@ function goHome() {
           开始现场导游 <ChevronRight :size="17" />
         </button>
       </section>
+
+      <Transition name="sheet">
+        <div v-if="versionsOpen" class="dialog-backdrop" @click.self="versionsOpen = false">
+          <section class="versions-dialog">
+            <header>
+              <div>
+                <p class="eyebrow">Version history</p>
+                <h2>这份行程走过的版本</h2>
+              </div>
+              <button type="button" aria-label="关闭" @click="versionsOpen = false"><X :size="18" /></button>
+            </header>
+            <div class="versions-list">
+              <article
+                v-for="version in versions"
+                :key="version.id"
+                :class="{ current: version.id === plan.id }"
+              >
+                <span class="version-number">v{{ version.version }}</span>
+                <div>
+                  <strong>{{ version.generatedBy }}</strong>
+                  <p>{{ version.dayPlans.length }} 天 · ¥{{ formatMoney(version.estimatedCost) }} · {{ version.passed ? '校验通过' : '有待确认项' }}</p>
+                </div>
+                <span v-if="version.id === plan.id" class="version-current">当前</span>
+                <button v-else type="button" :disabled="refreshLoading" @click="restoreVersion(version)">
+                  <RotateCcw :size="13" /> 恢复
+                </button>
+              </article>
+            </div>
+          </section>
+        </div>
+      </Transition>
+
+      <Transition name="sheet">
+        <div v-if="swapTarget" class="dialog-backdrop" @click.self="swapTarget = null">
+          <section class="swap-dialog">
+            <header>
+              <div>
+                <p class="eyebrow">Change the scene</p>
+                <h2>换掉「{{ swapTarget.name }}」</h2>
+                <p>优先推荐同区域、位置更近的景点。</p>
+              </div>
+              <button type="button" aria-label="关闭" @click="swapTarget = null"><X :size="18" /></button>
+            </header>
+            <div v-if="alternatives.length" class="swap-grid">
+              <button
+                v-for="poi in alternatives"
+                :key="poi.id"
+                type="button"
+                :disabled="swapping"
+                :style="{ '--swap-accent': poi.accent }"
+                @click="replacePoi(poi)"
+              >
+                <span class="swap-art">{{ poi.name.slice(0, 1) }}</span>
+                <span>
+                  <small>{{ poi.area }} · {{ poi.durationMinutes }} MIN</small>
+                  <strong>{{ poi.name }}</strong>
+                  <em>{{ poi.summary }}</em>
+                </span>
+                <ArrowRight :size="15" />
+              </button>
+            </div>
+            <div v-else class="swap-empty">
+              <span class="spinner spinner--dark"></span>
+              <p>正在寻找合适替代...</p>
+            </div>
+          </section>
+        </div>
+      </Transition>
     </template>
   </div>
 </template>
@@ -681,11 +882,67 @@ function goHome() {
   font-size: 11px;
 }
 
+.feedback-banner {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 18px;
+  padding: 11px 14px;
+  border: 1px solid rgba(68, 113, 83, 0.16);
+  border-radius: 10px;
+  background: rgba(101, 145, 111, 0.08);
+  color: #456a50;
+  font-size: 10px;
+}
+
+.feedback-banner button {
+  display: grid;
+  margin-left: auto;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
 .plan-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.65fr) minmax(290px, 0.75fr);
   gap: 54px;
   align-items: start;
+}
+
+.plan-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.plan-toolbar > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.42);
+  color: var(--forest);
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.plan-toolbar > button span {
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(37, 80, 62, 0.09);
+  color: var(--muted);
+  font-size: 7px;
+}
+
+.plan-toolbar > span {
+  color: #9c9e96;
+  font-size: 8px;
 }
 
 .day-tabs {
@@ -1080,12 +1337,77 @@ function goHome() {
 
 .map-card,
 .budget-card,
+.refine-card,
 .verified-card,
 .tips-card {
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 16px;
   background: rgba(255, 253, 247, 0.75);
+}
+
+.refine-card {
+  padding: 17px;
+}
+
+.refine-card > p {
+  margin: 1px 0 12px;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.6;
+}
+
+.refine-card form {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 5px 5px 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fffdf8;
+}
+
+.refine-card input {
+  min-width: 0;
+  height: 32px;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 9px;
+}
+
+.refine-card form > button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: var(--forest);
+  color: #fff;
+  cursor: pointer;
+}
+
+.refine-card form > button:disabled {
+  opacity: 0.4;
+}
+
+.refine-chips {
+  display: flex;
+  gap: 6px;
+  margin-top: 9px;
+}
+
+.refine-chips button {
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--cream-deep);
+  color: var(--muted-strong);
+  font-size: 7px;
+  cursor: pointer;
 }
 
 .map-card {
@@ -1257,6 +1579,223 @@ function goHome() {
   line-height: 1.08;
 }
 
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(17, 38, 29, 0.52);
+  backdrop-filter: blur(8px);
+}
+
+.versions-dialog,
+.swap-dialog {
+  width: min(690px, 100%);
+  max-height: min(720px, calc(100vh - 48px));
+  padding: 27px;
+  overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, 0.76);
+  border-radius: 22px;
+  background: #faf7ee;
+  box-shadow: 0 30px 90px rgba(13, 33, 24, 0.26);
+}
+
+.versions-dialog header,
+.swap-dialog header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.versions-dialog h2,
+.swap-dialog h2 {
+  margin: 11px 0 0;
+  color: var(--forest);
+  font-family: var(--font-display);
+  font-size: 31px;
+  font-weight: 500;
+  letter-spacing: -0.035em;
+}
+
+.versions-dialog header > button,
+.swap-dialog header > button {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--forest);
+  cursor: pointer;
+}
+
+.versions-list {
+  display: flex;
+  gap: 8px;
+  margin-top: 22px;
+  flex-direction: column;
+}
+
+.versions-list article {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: rgba(255, 253, 247, 0.7);
+}
+
+.versions-list article.current {
+  border-color: rgba(44, 91, 69, 0.26);
+  background: rgba(191, 211, 190, 0.22);
+}
+
+.version-number {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--forest);
+  color: #fff1da;
+  font-family: var(--font-display);
+  font-size: 13px;
+}
+
+.versions-list article > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.versions-list strong {
+  color: var(--forest);
+  font-size: 10px;
+}
+
+.versions-list p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.versions-list article > button,
+.version-current {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--forest);
+  font-size: 8px;
+}
+
+.versions-list article > button {
+  cursor: pointer;
+}
+
+.version-current {
+  color: #5b8269;
+  border-color: rgba(83, 124, 94, 0.18);
+}
+
+.swap-dialog header p:last-child {
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.swap-grid {
+  display: grid;
+  gap: 8px;
+  margin-top: 22px;
+}
+
+.swap-grid > button {
+  --swap-accent: #b36d4b;
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fffdf8;
+  text-align: left;
+  cursor: pointer;
+}
+
+.swap-grid > button:hover {
+  border-color: color-mix(in srgb, var(--swap-accent) 50%, transparent);
+}
+
+.swap-art {
+  display: grid;
+  width: 62px;
+  height: 64px;
+  place-items: center;
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 72% 25%, rgba(255, 255, 255, 0.35), transparent 25%),
+    var(--swap-accent);
+  color: rgba(255, 255, 255, 0.5);
+  font-family: var(--font-display);
+  font-size: 35px;
+}
+
+.swap-grid > button > span:nth-child(2) {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.swap-grid small {
+  color: var(--muted);
+  font-size: 7px;
+}
+
+.swap-grid strong {
+  color: var(--forest);
+  font-family: var(--font-display);
+  font-size: 17px;
+}
+
+.swap-grid em {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 8px;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.swap-grid > button > svg {
+  color: var(--muted);
+}
+
+.swap-empty {
+  display: flex;
+  min-height: 170px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
 @media (max-width: 980px) {
   .plan-hero__main {
     grid-template-columns: 1fr;
@@ -1389,6 +1928,18 @@ function goHome() {
     align-items: flex-start;
     gap: 28px;
     flex-direction: column;
+  }
+
+  .dialog-backdrop {
+    align-items: flex-end;
+    padding: 12px;
+  }
+
+  .versions-dialog,
+  .swap-dialog {
+    max-height: 82vh;
+    padding: 21px;
+    border-radius: 20px;
   }
 }
 </style>

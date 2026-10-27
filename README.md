@@ -6,8 +6,11 @@
 - 上海精选 POI 检索和规则化行程生成。
 - 时间、预算、必去景点和开放信息校验。
 - 响应式行程时间轴与路线地图。
-- 浏览器前台定位、景点讲解和上下文问答。
-- Spring Boot + Spring AI 可选模型接入。
+- 千问结构化需求抽取、多轮修改和上下文问答。
+- 高德地图、真实地理编码和真实路线时间。
+- 行程版本、单点替换、历史恢复和账号历史记录。
+- 浏览器前台定位、讲解语音和离线行程缓存。
+- 响应式 PWA 与基础离线访问。
 - H2 零配置演示模式与 PostgreSQL 正式配置。
 
 ## 项目结构
@@ -35,8 +38,19 @@ mvn spring-boot:run
 
 ```powershell
 $env:TRAVEL_AI_API_KEY="your-api-key"
-$env:TRAVEL_AI_MODEL="gpt-4o-mini"
+$env:TRAVEL_AI_MODEL="qwen-plus"
+$env:TRAVEL_AI_BASE_URL="https://dashscope.aliyuncs.com/compatible-mode"
 mvn spring-boot:run
+```
+
+也可以在本地创建被 Git 忽略的 `backend/.env.properties`，写入：
+
+```properties
+travel.ai.api-key=your-key
+travel.ai.model=qwen-plus
+travel.ai.base-url=https://dashscope.aliyuncs.com/compatible-mode
+travel.map.amap-key=your-web-key
+travel.map.amap-service-key=your-web-service-key
 ```
 
 未配置 Key 时，需求抽取、排程、预算校验、附近景点匹配和基础导游仍可通过本地规则运行。

@@ -61,6 +61,15 @@ watch(
   { deep: true },
 )
 
+watch(
+  () => props.mapKey,
+  (key) => {
+    if (key && !amapReady.value) {
+      loadAmap()
+    }
+  },
+)
+
 async function loadAmap() {
   try {
     if (!(window as any).AMap) {

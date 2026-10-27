@@ -21,6 +21,11 @@ const router = createRouter({
       component: () => import('./views/GuideView.vue'),
     },
     {
+      path: '/account',
+      name: 'account',
+      component: () => import('./views/AccountView.vue'),
+    },
+    {
       path: '/:pathMatch(.*)*',
       redirect: '/',
     },

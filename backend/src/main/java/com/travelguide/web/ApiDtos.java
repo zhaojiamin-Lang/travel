@@ -1,10 +1,13 @@
 package com.travelguide.web;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public final class ApiDtos {
@@ -15,6 +18,17 @@ public final class ApiDtos {
     public record DraftRequest(
             String sessionId,
             @NotBlank(message = "请先描述你的旅行想法") String prompt
+    ) {
+    }
+
+    public record NaturalLanguageUpdateRequest(
+            @NotBlank(message = "请输入要调整的内容") String message
+    ) {
+    }
+
+    public record SwapRequest(
+            @NotBlank(message = "请选择被替换的景点") String itemId,
+            @NotBlank(message = "请选择替换景点") String replacementPoiId
     ) {
     }
 
@@ -208,6 +222,37 @@ public final class ApiDtos {
             List<String> suggestedPrompts,
             String mapKey,
             String aiMode
+    ) {
+    }
+
+    public record RegisterRequest(
+            @NotBlank(message = "请输入邮箱") @Email(message = "邮箱格式不正确") String email,
+            @NotBlank(message = "请输入密码") @Size(min = 6, max = 72, message = "密码长度需要 6–72 位") String password,
+            @NotBlank(message = "请输入昵称") @Size(min = 1, max = 30, message = "昵称最多 30 个字符") String displayName
+    ) {
+    }
+
+    public record LoginRequest(
+            @NotBlank(message = "请输入邮箱") @Email(message = "邮箱格式不正确") String email,
+            @NotBlank(message = "请输入密码") String password
+    ) {
+    }
+
+    public record UserView(
+            String id,
+            String email,
+            String displayName,
+            boolean guest
+    ) {
+    }
+
+    public record HistoryItem(
+            String requestId,
+            String latestPlanId,
+            String summary,
+            LocalDate startDate,
+            LocalDateTime createdAt,
+            int planCount
     ) {
     }
 }
