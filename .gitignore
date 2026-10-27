@@ -2,7 +2,6 @@
 backend/target/
 backend/data/
 /data/
-backend/src/main/java/com/travelguide/*/package-info.java
 
 # Frontend
 frontend/node_modules/
