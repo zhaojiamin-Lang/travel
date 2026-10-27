@@ -1,3 +1,9 @@
+<!--
+  模块：账号与历史（views/AccountView.vue）
+  职责：注册 / 登录 / 登出，以及历史行程列表。
+  未登录时后端会下发游客身份（auth/me），因此首页与规划无需强制注册；
+  登录后 history 按账号隔离，点击历史项直接回到对应行程页。
+-->
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'

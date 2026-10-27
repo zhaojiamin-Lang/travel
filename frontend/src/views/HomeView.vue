@@ -1,3 +1,12 @@
+<!--
+  模块：首页 / 需求入口（views/HomeView.vue）
+  职责：整条链路的起点。
+  1) 首屏展示品牌、能力说明与精选景点（读 api.bootstrap 与 POI）；
+  2) 用户用一句话描述旅行想法 -> api.createDraft 起稿；
+  3) 缺字段时在页面补 Slot（日期、天数、人数、预算、节奏）-> api.updateRequirements；
+  4) api.generatePlan 生成行程后跳转 /plan/:planId。
+  本页只管表单与提示，生成逻辑全在后端。
+-->
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'

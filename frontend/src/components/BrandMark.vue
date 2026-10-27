@@ -1,3 +1,8 @@
+<!--
+  模块：品牌标识组件（components/BrandMark.vue）
+  职责：纯展示的「漫游 HERE」标记，支持 light（深底反白）与 compact（紧凑）两种变体。
+  无状态、无请求，可被任意页面复用。
+-->
 <script setup lang="ts">
 withDefaults(
   defineProps<{

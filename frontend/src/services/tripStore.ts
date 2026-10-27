@@ -1,3 +1,11 @@
+/**
+ * 模块：行程状态与离线缓存（services/tripStore.ts）
+ *
+ * 职责：Pinia store，缓存「当前行程」和「启动配置」，并把行程写进
+ * localStorage（`last-plan-id`、`plan-cache-<id>`）。
+ * 用途：刷新页面或断网时，导游页仍能靠 `cachedPlan()` 读出上一份行程，
+ * 这是 PWA 离线可用的一半（另一半是 public/sw.js）。
+ */
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { Bootstrap, Plan } from '../types'

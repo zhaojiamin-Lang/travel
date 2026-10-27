@@ -1,3 +1,10 @@
+<!--
+  模块：路线地图（components/RouteMap.vue）
+  职责：把 Plan 里的景点序列画成可视路线，两种形态——
+  1) 配置了高德 Web Key：动态加载 JS API，画真实路线与标记；
+  2) 没配置或加载失败：退回内置 SVG 示意图，保证任何环境都有可交互地图。
+  同时支持 plan（行程预览）与 guide（现场导游）两种模式，高亮当前景点。
+-->
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { MapPin, Navigation } from 'lucide-vue-next'

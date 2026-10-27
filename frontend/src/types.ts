@@ -1,3 +1,10 @@
+/**
+ * 模块：共享类型（types.ts）
+ *
+ * 职责：前后端契约的唯一声明处，与后端 web/ApiDtos 的 record 一一对应——
+ * Poi、Draft、Plan/PlanItem/DayPlan、GuideSession、User、HistoryItem、
+ * Bootstrap、MapPoint 等。改接口时先改这里，TypeScript 会把受影响的地方全部报出来。
+ */
 export interface Poi {
   id: string
   name: string

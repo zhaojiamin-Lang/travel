@@ -1,3 +1,12 @@
+/**
+ * 模块：后端 API 客户端（services/api.ts）
+ *
+ * 职责：全站唯一的 HTTP 出口。统一处理 baseURL（默认 `/api`，可用
+ * `VITE_API_BASE` 覆盖）、JSON 序列化、`credentials: 'include'`
+ * （登录态走 Cookie/Session）、非 2xx 时抛出带后端 message 的错误。
+ * 下方 `api` 对象按业务域分组：行程、账号、导游、重排，视图只调这里的方法，
+ * 不直接写 fetch。
+ */
 import type {
   Bootstrap,
   Draft,

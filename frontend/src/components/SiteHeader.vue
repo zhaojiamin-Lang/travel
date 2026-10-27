@@ -1,3 +1,9 @@
+<!--
+  模块：站点页头（components/SiteHeader.vue）
+  职责：品牌 + 导航 + 右侧主行动按钮（默认「开始规划」）。
+  通过 props 控制是否反白、是否显示导航、按钮文案，页面按需传入；
+  本身不跳转，跳转由父页面处理。
+-->
 <script setup lang="ts">
 import { ArrowUpRight } from 'lucide-vue-next'
 import BrandMark from './BrandMark.vue'

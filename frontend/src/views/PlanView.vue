@@ -1,3 +1,12 @@
+<!--
+  模块：行程详情（views/PlanView.vue）
+  职责：一份行程的「主控台」，把后端能力全摆在一个页面。
+  展示：按天的时间轴（景点/用餐/交通）、预算与校验问题、路线地图；
+  操作：自然语言改需求并重新生成、切换历史版本与回滚、
+        查看单点备选并替换、一键进入现场导游。
+  对应接口：getPlan / getVersions / restoreVersion / updateFromNaturalLanguage /
+           generatePlan / getAlternatives / swapPoi / createGuide。
+-->
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'

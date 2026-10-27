@@ -1,3 +1,11 @@
+<!--
+  模块：现场导游（views/GuideView.vue）
+  职责：到了景点之后的即时助手。
+  定位：浏览器 Geolocation 上报 -> 后端算出最近景点与置信度，低置信度时提示手选；
+  讲解：按当前景点产出讲解文案，用 Web Speech API 朗读（可停止）；
+  追问：把问题发给 api.ask，后端优先走大模型，不可用时给确定性答案。
+  断网兜底：从 tripStore / localStorage 读缓存行程，至少还能看行程和讲解。
+-->
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
