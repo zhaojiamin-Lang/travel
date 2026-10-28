@@ -408,6 +408,12 @@ function scrollToPlanner() {
               <p class="eyebrow">One last detail</p>
               <h2 id="slot-title">再确认几件小事</h2>
               <p>{{ draft.summary }}</p>
+              <div v-if="draft.interestTags.length || draft.excludedPoiIds.length" class="slot-recognized">
+                <span v-for="tag in draft.interestTags" :key="tag">喜欢 {{ tag }}</span>
+                <span v-if="draft.excludedPoiIds.length" class="excluded">
+                  已排除 {{ draft.excludedPoiIds.length }} 个地点
+                </span>
+              </div>
             </div>
             <span class="slot-sheet__number">01—04</span>
           </div>
@@ -1396,6 +1402,26 @@ main,
   margin: 0;
   color: var(--muted);
   font-size: 11px;
+}
+
+.slot-recognized {
+  display: flex;
+  gap: 5px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.slot-recognized span {
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: rgba(69, 109, 84, 0.1);
+  color: #577361;
+  font-size: 7px;
+}
+
+.slot-recognized span.excluded {
+  background: rgba(190, 101, 69, 0.09);
+  color: #925b46;
 }
 
 .slot-sheet__number {

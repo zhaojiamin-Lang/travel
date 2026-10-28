@@ -11,6 +11,7 @@ import type {
   Bootstrap,
   DayOptimization,
   Draft,
+  ExecutionProgress,
   GuideSession,
   HistoryItem,
   LocationResult,
@@ -18,6 +19,7 @@ import type {
   PlanDiff,
   PlanExplanation,
   PlanIntent,
+  ReplanProposal,
   Poi,
   RollbackResult,
   User,
@@ -71,6 +73,26 @@ export const api = {
   ) {
     return request<DayOptimization>(`/optimizer/plans/${planId}/days/${dayNumber}`, {
       method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  },
+
+  getProgress(planId: string) {
+    return request<ExecutionProgress>(`/progress/${planId}`)
+  },
+
+  saveProgress(
+    planId: string,
+    payload: {
+      currentItemId?: string
+      completedItemIds: string[]
+      status: ExecutionProgress['status']
+      delayMinutes?: number
+      expectedRevision: number
+    },
+  ) {
+    return request<ExecutionProgress>(`/progress/${planId}`, {
+      method: 'PUT',
       body: JSON.stringify(payload),
     })
   },
@@ -192,6 +214,14 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ message }),
     })
+  },
+
+  getReplanProposal(proposalId: string) {
+    return request<ReplanProposal>(`/replan/proposals/${proposalId}`)
+  },
+
+  acceptReplanProposal(proposalId: string) {
+    return request<Plan>(`/replan/proposals/${proposalId}/accept`, { method: 'POST' })
   },
 
   createGuide(planId: string) {

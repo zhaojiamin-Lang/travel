@@ -45,11 +45,13 @@ import { useTripStore } from '../services/tripStore'
 import type {
   DayOptimization,
   DayPlan,
+  ExecutionProgress,
   Plan,
   PlanDiff,
   PlanIntent,
   PlanItem,
   Poi,
+  ReplanProposal,
   WeatherSnapshot,
 } from '../types'
 
@@ -79,6 +81,11 @@ const weather = ref<WeatherSnapshot | null>(null)
 const optimization = ref<DayOptimization | null>(null)
 const optimizing = ref(false)
 const optimizationOpen = ref(false)
+const progress = ref<ExecutionProgress | null>(null)
+const progressSaving = ref(false)
+const replanProposal = ref<ReplanProposal | null>(null)
+const replanOpen = ref(false)
+const replanApplying = ref(false)
 
 const activeDay = computed<DayPlan | undefined>(() => {
   return plan.value?.dayPlans.find((day) => day.dayNumber === activeDayNumber.value)
@@ -91,6 +98,19 @@ const budgetRatio = computed(() => {
 
 const poiCount = computed(() => {
   return plan.value?.mapPoints.length || 0
+})
+
+const allPlanPois = computed(() =>
+  plan.value?.dayPlans.flatMap((day) => day.items).filter((item) => item.type === 'POI') || [],
+)
+
+const currentProgressItem = computed(() =>
+  allPlanPois.value.find((item) => item.id === progress.value?.currentItemId) || null,
+)
+
+const progressPercent = computed(() => {
+  if (!allPlanPois.value.length) return 0
+  return Math.round(((progress.value?.completedItemIds.length || 0) / allPlanPois.value.length) * 100)
 })
 
 onMounted(async () => {
@@ -110,6 +130,19 @@ onMounted(async () => {
     }).catch(() => {
       weather.value = null
     })
+    api.getProgress(plan.value.id).then((data) => {
+      progress.value = data
+    }).catch(() => {
+      progress.value = null
+    })
+    if (typeof route.query.proposal === 'string') {
+      api.getReplanProposal(route.query.proposal).then((data) => {
+        replanProposal.value = data
+        replanOpen.value = true
+      }).catch(() => {
+        replanProposal.value = null
+      })
+    }
     if (!tripStore.bootstrap) {
       api.bootstrap().then((data) => {
         tripStore.bootstrap = data
@@ -276,6 +309,64 @@ async function optimizeActiveDay() {
 function planWeather() {
   if (!weather.value?.forecasts.length || !plan.value) return null
   return weather.value.forecasts.find((item) => item.date === plan.value?.startDate) || weather.value.forecasts[0]
+}
+
+async function startOrCompleteProgress() {
+  if (!plan.value || progressSaving.value) return
+  const items = allPlanPois.value
+  if (!items.length) return
+  progressSaving.value = true
+  error.value = ''
+  try {
+    let completed = [...(progress.value?.completedItemIds || [])]
+    let currentId = progress.value?.currentItemId
+    let status: ExecutionProgress['status'] = progress.value?.status || 'NOT_STARTED'
+
+    if (!currentId) {
+      currentId = items.find((item) => !completed.includes(item.id))?.id
+      status = 'IN_PROGRESS'
+    } else {
+      if (!completed.includes(currentId)) completed.push(currentId)
+      const currentIndex = items.findIndex((item) => item.id === currentId)
+      currentId = items.slice(currentIndex + 1).find((item) => !completed.includes(item.id))?.id
+      status = currentId ? 'IN_PROGRESS' : 'COMPLETED'
+    }
+
+    progress.value = await api.saveProgress(plan.value.id, {
+      currentItemId: currentId,
+      completedItemIds: completed,
+      status,
+      delayMinutes: progress.value?.delayMinutes || 0,
+      expectedRevision: progress.value?.revision || 0,
+    })
+    feedback.value =
+      status === 'COMPLETED'
+        ? '本次行程已标记完成。'
+        : currentId
+          ? '已保存执行进度。'
+          : '尚未选择下一站。'
+  } catch (reason) {
+    error.value = reason instanceof Error ? reason.message : '执行进度保存失败'
+  } finally {
+    progressSaving.value = false
+  }
+}
+
+async function acceptReplanProposal() {
+  if (!replanProposal.value || replanApplying.value) return
+  replanApplying.value = true
+  try {
+    const accepted = await api.acceptReplanProposal(replanProposal.value.id)
+    applyPlan(accepted)
+    replanOpen.value = false
+    replanProposal.value = null
+    feedback.value = '已应用实时重规划方案。'
+    router.replace({ name: 'plan', params: { planId: accepted.id } })
+  } catch (reason) {
+    error.value = reason instanceof Error ? reason.message : '应用重规划方案失败'
+  } finally {
+    replanApplying.value = false
+  }
 }
 
 function normalizeIntent(intent: PlanIntent, original: string) {
@@ -586,6 +677,35 @@ function goHome() {
               </div>
             </section>
 
+            <section class="progress-card">
+              <div class="panel-heading">
+                <span><CheckCircle2 :size="16" /> 行程执行</span>
+                <small>{{ progressPercent }}%</small>
+              </div>
+              <div class="progress-track">
+                <span :style="{ width: `${progressPercent}%` }"></span>
+              </div>
+              <div class="progress-copy">
+                <strong>
+                  {{ progress?.status === 'COMPLETED' ? '行程已完成' : currentProgressItem?.name || '尚未开始' }}
+                </strong>
+                <span>
+                  已完成 {{ progress?.completedItemIds.length || 0 }} / {{ allPlanPois.length }} 站
+                  <template v-if="progress?.delayMinutes"> · 延误 {{ progress.delayMinutes }} 分钟</template>
+                </span>
+              </div>
+              <button
+                class="ghost-button"
+                type="button"
+                :disabled="progressSaving || progress?.status === 'COMPLETED'"
+                @click="startOrCompleteProgress"
+              >
+                <span v-if="progressSaving" class="spinner spinner--dark"></span>
+                <CheckCircle2 v-else :size="14" />
+                {{ !currentProgressItem ? '开始当前第一站' : '完成当前站' }}
+              </button>
+            </section>
+
             <section class="refine-card">
               <div class="panel-heading">
                 <span><RefreshCw :size="16" /> 调整这份行程</span>
@@ -809,6 +929,50 @@ function goHome() {
               </article>
             </div>
             <p v-for="note in optimization.notes" :key="note" class="solver-note">{{ note }}</p>
+          </section>
+        </div>
+      </Transition>
+
+      <Transition name="sheet">
+        <div v-if="replanOpen && replanProposal" class="dialog-backdrop" @click.self="replanOpen = false">
+          <section class="replan-dialog">
+            <header>
+              <div>
+                <p class="eyebrow">LIVE REPLAN</p>
+                <h2>{{ replanProposal.eventType === 'CLOSURE' ? '闭馆调整方案' : '延误调整方案' }}</h2>
+                <p>{{ replanProposal.summary }}</p>
+              </div>
+              <button type="button" aria-label="关闭" @click="replanOpen = false"><X :size="18" /></button>
+            </header>
+            <div class="replan-impact">
+              <div>
+                <span>当前版本</span>
+                <strong>v{{ plan.version }}</strong>
+              </div>
+              <ArrowRight :size="18" />
+              <div>
+                <span>建议版本</span>
+                <strong>v{{ replanProposal.proposedPlan.version }}</strong>
+              </div>
+              <div>
+                <span>预计费用</span>
+                <strong>¥{{ formatMoney(replanProposal.proposedPlan.estimatedCost) }}</strong>
+              </div>
+            </div>
+            <div class="replan-changes">
+              <article v-for="(change, index) in replanProposal.changes.slice(0, 10)" :key="`${change.type}-${index}`">
+                <span>{{ change.type }}</span>
+                <p>{{ change.description }}</p>
+              </article>
+            </div>
+            <div class="replan-actions">
+              <button class="ghost-button" type="button" @click="replanOpen = false">暂不应用</button>
+              <button class="primary-button" type="button" :disabled="replanApplying" @click="acceptReplanProposal">
+                <span v-if="replanApplying" class="spinner"></span>
+                <span v-else>确认并创建新版本</span>
+                <CheckCircle2 v-if="!replanApplying" :size="16" />
+              </button>
+            </div>
           </section>
         </div>
       </Transition>
@@ -1597,6 +1761,7 @@ function goHome() {
 .map-card,
 .budget-card,
 .weather-card,
+.progress-card,
 .refine-card,
 .verified-card,
 .tips-card {
@@ -1608,6 +1773,56 @@ function goHome() {
 
 .weather-card {
   padding: 17px;
+}
+
+.progress-card {
+  padding: 17px;
+}
+
+.progress-card .ghost-button {
+  width: 100%;
+  min-height: 38px;
+  margin-top: 12px;
+  font-size: 9px;
+}
+
+.progress-track {
+  height: 5px;
+  margin-top: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(46, 85, 68, 0.09);
+}
+
+.progress-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #577b64, #d6ad6f);
+  transition: width 240ms ease;
+}
+
+.progress-copy {
+  display: flex;
+  margin-top: 10px;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.progress-copy strong {
+  color: var(--forest);
+  font-family: var(--font-display);
+  font-size: 16px;
+}
+
+.progress-copy span {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.progress-card .spinner--dark {
+  width: 13px;
+  height: 13px;
 }
 
 .weather-card__body {
@@ -1913,7 +2128,8 @@ function goHome() {
 
 .versions-dialog,
 .swap-dialog,
-.optimization-dialog {
+.optimization-dialog,
+.replan-dialog {
   width: min(690px, 100%);
   max-height: min(720px, calc(100vh - 48px));
   padding: 27px;
@@ -1926,7 +2142,8 @@ function goHome() {
 
 .versions-dialog header,
 .swap-dialog header,
-.optimization-dialog header {
+.optimization-dialog header,
+.replan-dialog header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -1935,7 +2152,8 @@ function goHome() {
 
 .versions-dialog h2,
 .swap-dialog h2,
-.optimization-dialog h2 {
+.optimization-dialog h2,
+.replan-dialog h2 {
   margin: 11px 0 0;
   color: var(--forest);
   font-family: var(--font-display);
@@ -1946,7 +2164,8 @@ function goHome() {
 
 .versions-dialog header > button,
 .swap-dialog header > button,
-.optimization-dialog header > button {
+.optimization-dialog header > button,
+.replan-dialog header > button {
   display: grid;
   width: 34px;
   height: 34px;
@@ -1963,6 +2182,81 @@ function goHome() {
   margin: 7px 0 0;
   color: var(--muted);
   font-size: 9px;
+}
+
+.replan-dialog header p:last-child {
+  max-width: 520px;
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.6;
+}
+
+.replan-impact {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr 1fr;
+  gap: 10px;
+  align-items: center;
+  margin-top: 20px;
+  padding: 14px;
+  border-radius: 11px;
+  background: rgba(213, 228, 209, 0.35);
+}
+
+.replan-impact > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.replan-impact span {
+  color: var(--muted);
+  font-size: 7px;
+}
+
+.replan-impact strong {
+  color: var(--forest);
+  font-family: var(--font-display);
+  font-size: 19px;
+}
+
+.replan-impact > svg {
+  color: var(--muted);
+}
+
+.replan-changes {
+  display: flex;
+  gap: 7px;
+  margin-top: 14px;
+  flex-direction: column;
+}
+
+.replan-changes article {
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(255, 253, 247, 0.65);
+}
+
+.replan-changes span {
+  color: var(--clay);
+  font-size: 6px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.replan-changes p {
+  margin: 4px 0 0;
+  color: var(--muted-strong);
+  font-size: 9px;
+  line-height: 1.6;
+}
+
+.replan-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
 }
 
 .solver-meta {
@@ -2498,7 +2792,8 @@ function goHome() {
 
   .versions-dialog,
   .swap-dialog,
-  .optimization-dialog {
+  .optimization-dialog,
+  .replan-dialog {
     max-height: 82vh;
     padding: 21px;
     border-radius: 20px;

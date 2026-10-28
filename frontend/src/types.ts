@@ -36,6 +36,8 @@ export interface Draft {
   pace?: 'RELAXED' | 'BALANCED'
   noSpicy?: boolean
   mustSee: string[]
+  interestTags: string[]
+  excludedPoiIds: string[]
   missingFields: string[]
   summary: string
   suggestedPois: Poi[]
@@ -265,4 +267,31 @@ export interface DayOptimization {
   stopCount: number
   stops: OptimizedStop[]
   notes: string[]
+}
+
+export interface ExecutionProgress {
+  id: string
+  planId: string
+  currentItemId?: string
+  completedItemIds: string[]
+  status: 'NOT_STARTED' | 'IN_PROGRESS' | 'PAUSED' | 'COMPLETED'
+  currentItemStartedAt?: string
+  actualEndedAt?: string
+  delayMinutes: number
+  lastEventId?: string
+  revision: number
+  updatedAt: string
+}
+
+export interface ReplanProposal {
+  id: string
+  eventId: string
+  planId: string
+  eventType: 'CLOSURE' | 'DELAY'
+  baseVersion: number
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED'
+  summary: string
+  changes: SemanticChange[]
+  proposedPlan: Plan
+  createdAt: string
 }

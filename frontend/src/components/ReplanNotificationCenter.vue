@@ -95,7 +95,12 @@ function dismiss(id: string) {
 
 function openProposal(notice: Notice) {
   if (notice.planId) {
-    router.push({ name: 'plan', params: { planId: notice.planId } })
+    const proposalId = notice.id.startsWith('proposal') ? notice.id : undefined
+    router.push({
+      name: 'plan',
+      params: { planId: notice.planId },
+      query: proposalId ? { proposal: proposalId } : {},
+    })
   }
   dismiss(notice.id)
 }
