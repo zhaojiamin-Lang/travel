@@ -30,6 +30,8 @@ public class TripRequestEntity {
     private String pace;
     private Boolean noSpicy;
     private String mustSee;
+    private String interestTags;
+    private String excludedPoiIds;
     @jakarta.persistence.Column(columnDefinition = "text")
     private String summary;
     private LocalDateTime createdAt;
@@ -136,6 +138,22 @@ public class TripRequestEntity {
 
     public void setMustSee(String mustSee) {
         this.mustSee = mustSee;
+    }
+
+    public String getInterestTags() {
+        return interestTags;
+    }
+
+    public void setInterestTags(String interestTags) {
+        this.interestTags = interestTags;
+    }
+
+    public String getExcludedPoiIds() {
+        return excludedPoiIds;
+    }
+
+    public void setExcludedPoiIds(String excludedPoiIds) {
+        this.excludedPoiIds = excludedPoiIds;
     }
 
     public String getSummary() {

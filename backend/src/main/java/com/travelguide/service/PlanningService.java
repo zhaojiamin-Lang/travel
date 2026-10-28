@@ -57,12 +57,6 @@ import java.util.regex.Pattern;
 public class PlanningService {
 
     private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
-    private static final List<List<String>> DAY_ROUTES = List.of(
-            List.of("bund", "nanjing-road", "yuyuan", "lujiazui"),
-            List.of("shanghai-museum", "sinan-mansions", "wukang-road", "xintiandi"),
-            List.of("natural-history", "jingan-temple", "suzhou-creek", "zhangyuan")
-    );
-
     private final PoiRepository poiRepository;
     private final TripRequestRepository requestRepository;
     private final TripPlanRepository planRepository;
@@ -110,8 +104,13 @@ public class PlanningService {
         entity.setBudget(resolveBudget(prompt));
         entity.setPace(prompt.matches(".*(轻松|休闲|不想走太累|慢一点).*") ? "RELAXED" : "BALANCED");
         entity.setNoSpicy(prompt.matches(".*(不吃辣|不能吃辣|清淡).*"));
-        List<PoiEntity> mustSee = resolveMustSee(prompt, allPois);
+        List<PoiEntity> excludedPois = resolveExcludedPois(prompt, allPois);
+        List<PoiEntity> mustSee = resolveMustSee(prompt, allPois).stream()
+                .filter(poi -> excludedPois.stream().noneMatch(excluded -> excluded.getId().equals(poi.getId())))
+                .toList();
         entity.setMustSee(String.join(",", mustSee.stream().map(PoiEntity::getId).toList()));
+        entity.setExcludedPoiIds(String.join(",", excludedPois.stream().map(PoiEntity::getId).toList()));
+        entity.setInterestTags(String.join(",", inferInterestTags(prompt, allPois)));
         entity.setCreatedAt(LocalDateTime.now(SHANGHAI));
         enrichWithAi(prompt, entity, allPois);
         if (prompt.matches(".*(带父母|和爸妈|一家三口).*") && entity.getPeople() != null && entity.getPeople() < 3) {
@@ -121,6 +120,7 @@ public class PlanningService {
         if (entity.getDays() != null && entity.getStartDate() != null) {
             entity.setEndDate(entity.getStartDate().plusDays(entity.getDays() - 1L));
         }
+        normalizePoiPreferences(entity, allPois);
         entity.setSummary(buildSummary(entity, mustSeeEntities(entity)));
 
         requestRepository.save(entity);
@@ -160,19 +160,21 @@ public class PlanningService {
 
         List<PoiEntity> allPois = poiRepository.findAll();
         LinkedHashSet<String> mustSeeIds = new LinkedHashSet<>(mustSeeEntities(entity).stream().map(PoiEntity::getId).toList());
+        LinkedHashSet<String> excludedIds = new LinkedHashSet<>(csvValues(entity.getExcludedPoiIds()));
+        LinkedHashSet<String> interests = new LinkedHashSet<>(csvValues(entity.getInterestTags()));
+        interests.addAll(inferInterestTags(message, allPois));
         for (PoiEntity candidate : resolveMustSee(message, allPois)) {
-            int nameIndex = Math.max(
-                    message.indexOf(candidate.getName()),
-                    candidate.getAliasName() == null ? -1 : message.indexOf(candidate.getAliasName())
-            );
-            String prefix = nameIndex > 0 ? message.substring(0, nameIndex) : "";
-            if (prefix.matches(".*(不去|排除|不想去).*")) {
+            if (isExcludedMention(message, candidate)) {
                 mustSeeIds.remove(candidate.getId());
+                excludedIds.add(candidate.getId());
             } else {
                 mustSeeIds.add(candidate.getId());
             }
         }
         entity.setMustSee(String.join(",", mustSeeIds));
+        entity.setExcludedPoiIds(String.join(",", excludedIds));
+        entity.setInterestTags(String.join(",", interests));
+        normalizePoiPreferences(entity, allPois);
         if (entity.getStartDate() != null && entity.getDays() != null) {
             entity.setEndDate(entity.getStartDate().plusDays(entity.getDays() - 1L));
         }
@@ -216,6 +218,7 @@ public class PlanningService {
         if (entity.getStartDate() != null && entity.getDays() != null) {
             entity.setEndDate(entity.getStartDate().plusDays(entity.getDays() - 1L));
         }
+        normalizePoiPreferences(entity, poiRepository.findAll());
         entity.setSummary(buildSummary(entity, mustSeeEntities(entity)));
         requestRepository.save(entity);
         return toDraft(entity, poiRepository.findAll());
@@ -229,43 +232,25 @@ public class PlanningService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "还需要补充：" + String.join("、", missing));
         }
         List<PoiEntity> allPois = poiRepository.findAll();
-        Map<String, PoiEntity> poiById = new LinkedHashMap<>();
-        allPois.forEach(poi -> poiById.put(poi.getId(), poi));
-        Set<String> used = new LinkedHashSet<>();
         List<DayPlan> days = new ArrayList<>();
         List<PlanIssue> issues = new ArrayList<>();
-        int maxPoisPerDay = "RELAXED".equals(request.getPace()) ? 3 : 4;
         List<PoiEntity> mustSee = mustSeeEntities(request);
-        int mustIndex = 0;
+        int baseMaxPoisPerDay = "RELAXED".equals(request.getPace()) ? 3 : 4;
+        int mustSeePerDay = (int) Math.ceil((double) mustSee.size() / request.getDays());
+        int maxPoisPerDay = Math.max(baseMaxPoisPerDay, mustSeePerDay);
+        if (maxPoisPerDay > baseMaxPoisPerDay) {
+            issues.add(new PlanIssue(
+                    "MUST_SEE_DENSITY",
+                    "WARNING",
+                    "必去景点数量较多，每天的安排会高于当前节奏建议。",
+                    "可以减少必去景点或增加旅行天数。"
+            ));
+        }
 
-        for (int day = 0; day < request.getDays(); day++) {
-            List<PoiEntity> dayPois = new ArrayList<>();
-            while (mustIndex < mustSee.size() && dayPois.size() < Math.min(2, maxPoisPerDay)) {
-                PoiEntity poi = mustSee.get(mustIndex++);
-                if (used.add(poi.getId())) {
-                    dayPois.add(poi);
-                }
-            }
-            List<String> preferred = DAY_ROUTES.get(day % DAY_ROUTES.size());
-            for (String id : preferred) {
-                if (dayPois.size() >= maxPoisPerDay) {
-                    break;
-                }
-                PoiEntity poi = poiById.get(id);
-                if (poi != null && used.add(poi.getId())) {
-                    dayPois.add(poi);
-                }
-            }
-            for (PoiEntity poi : allPois) {
-                if (dayPois.size() >= maxPoisPerDay) {
-                    break;
-                }
-                if (used.add(poi.getId())) {
-                    dayPois.add(poi);
-                }
-            }
+        List<List<PoiEntity>> dailyPois = selectDailyPois(request, allPois, mustSee, maxPoisPerDay);
+        for (int day = 0; day < dailyPois.size(); day++) {
             LocalDate date = request.getStartDate().plusDays(day);
-            days.add(buildDay(day + 1, date, request, dayPois, issues));
+            days.add(buildDay(day + 1, date, request, dailyPois.get(day), issues));
         }
 
         validateDayPlans(days, issues);
@@ -526,9 +511,11 @@ public class PlanningService {
         try {
             String instructions = """
                     你是旅行需求结构化抽取器。只输出一个 JSON 对象，不要 Markdown。
-                    字段：city, days, startDate, people, budget, pace, noSpicy, mustSee。
+                    字段：city, days, startDate, people, budget, pace, noSpicy, mustSee, interests, excluded。
                     pace 只能是 RELAXED 或 BALANCED；日期格式 YYYY-MM-DD；未知字段输出 null。
                     mustSee 只能从给定景点名称中选择。
+                    interests 提取建筑、街区、博物馆、人文、艺术、自然、亲子、夜景、拍照等主题。
+                    excluded 只能从给定景点名称中选择用户明确不想去的地点。
                     """;
             String knownPois = allPois.stream().map(PoiEntity::getName).collect(java.util.stream.Collectors.joining("、"));
             String response = aiGateway.complete(instructions, "景点列表：" + knownPois + "\n用户需求：" + prompt);
@@ -565,6 +552,24 @@ public class PlanningService {
                 if (!aiMustSee.isEmpty()) {
                     entity.setMustSee(aiMustSee.stream().map(PoiEntity::getId).distinct().collect(java.util.stream.Collectors.joining(",")));
                 }
+            }
+            if (json.has("interests") && json.path("interests").isArray()) {
+                List<String> interests = new ArrayList<>();
+                json.path("interests").forEach(node -> interests.add(node.asText()));
+                entity.setInterestTags(String.join(",", interests));
+            }
+            if (json.has("excluded") && json.path("excluded").isArray()) {
+                List<PoiEntity> excluded = new ArrayList<>();
+                json.path("excluded").forEach(node -> {
+                    PoiEntity poi = findPoi(node.asText(), allPois);
+                    if (poi != null) {
+                        excluded.add(poi);
+                    }
+                });
+                entity.setExcludedPoiIds(excluded.stream()
+                        .map(PoiEntity::getId)
+                        .distinct()
+                        .collect(java.util.stream.Collectors.joining(",")));
             }
         } catch (RuntimeException | JsonProcessingException ignored) {
             // 模型调用失败时，使用确定性抽取器兜底。
@@ -833,6 +838,8 @@ public class PlanningService {
                 entity.getPace(),
                 entity.getNoSpicy(),
                 entity.getMustSee().isBlank() ? List.of() : List.of(entity.getMustSee().split(",")),
+                csvValues(entity.getInterestTags()),
+                csvValues(entity.getExcludedPoiIds()),
                 missingFields(entity),
                 entity.getSummary(),
                 suggestions
@@ -842,7 +849,292 @@ public class PlanningService {
     private String buildSummary(TripRequestEntity entity, List<PoiEntity> mustSee) {
         String names = mustSee.isEmpty() ? "城市代表景点" : mustSee.stream().map(PoiEntity::getName).collect(java.util.stream.Collectors.joining("、"));
         String pace = "RELAXED".equals(entity.getPace()) ? "轻松节奏" : "平衡节奏";
-        return "上海 " + (entity.getDays() == null ? "待定" : entity.getDays()) + " 天 · " + pace + " · " + names;
+        String interests = csvValues(entity.getInterestTags()).isEmpty()
+                ? ""
+                : " · 关注 " + String.join("、", csvValues(entity.getInterestTags()));
+        return "上海 " + (entity.getDays() == null ? "待定" : entity.getDays()) + " 天 · " + pace + interests + " · " + names;
+    }
+
+    /**
+     * 按用户偏好生成每天候选景点，再按距离聚类排序。
+     * 不再依赖固定城市路线，景点来自数据库标签、区域、距离和明确必去项。
+     */
+    private List<List<PoiEntity>> selectDailyPois(
+            TripRequestEntity request,
+            List<PoiEntity> allPois,
+            List<PoiEntity> mustSee,
+            int targetPerDay
+    ) {
+        Set<String> excluded = new HashSet<>(csvValues(request.getExcludedPoiIds()));
+        Set<String> interests = new HashSet<>(csvValues(request.getInterestTags()));
+        if (interests.isEmpty()) {
+            interests.addAll(inferInterestTags(request.getRawPrompt(), allPois));
+        }
+
+        List<List<PoiEntity>> groups = new ArrayList<>();
+        for (int day = 0; day < request.getDays(); day++) {
+            groups.add(new ArrayList<>());
+        }
+
+        // 必去景点优先均分到不同日期，避免固定景点组决定路线。
+        for (int index = 0; index < mustSee.size(); index++) {
+            PoiEntity poi = mustSee.get(index);
+            if (!excluded.contains(poi.getId())) {
+                groups.get(index % groups.size()).add(poi);
+            }
+        }
+
+        Set<String> used = groups.stream()
+                .flatMap(List::stream)
+                .map(PoiEntity::getId)
+                .collect(java.util.stream.Collectors.toSet());
+        List<PoiEntity> ranked = allPois.stream()
+                .filter(poi -> !excluded.contains(poi.getId()))
+                .sorted(Comparator
+                        .comparingInt((PoiEntity poi) -> -preferenceScore(poi, interests, request))
+                        .thenComparing(PoiEntity::getName))
+                .toList();
+
+        for (List<PoiEntity> group : groups) {
+            while (group.size() < targetPerDay) {
+                PoiEntity next = nextBestPoi(group, ranked, used, interests, request);
+                if (next == null) {
+                    break;
+                }
+                group.add(next);
+                used.add(next.getId());
+            }
+        }
+        groups.forEach(this::orderByNearestNeighbor);
+        return groups;
+    }
+
+    private PoiEntity nextBestPoi(
+            List<PoiEntity> currentDay,
+            List<PoiEntity> ranked,
+            Set<String> used,
+            Set<String> interests,
+            TripRequestEntity request
+    ) {
+        PoiEntity anchor = currentDay.isEmpty() ? null : currentDay.get(currentDay.size() - 1);
+        Set<String> usedTypes = currentDay.stream().map(PoiEntity::getType).collect(java.util.stream.Collectors.toSet());
+        return ranked.stream()
+                .filter(poi -> !used.contains(poi.getId()))
+                .filter(poi -> fitsDailyLimit(currentDay, poi, request))
+                .max(Comparator.comparingDouble(poi -> {
+                    double score = preferenceScore(poi, interests, request);
+                    if (anchor != null) {
+                        score -= distanceKm(anchor, poi) * 12;
+                    }
+                    if (usedTypes.contains(poi.getType())) {
+                        score -= 12;
+                    }
+                    return score;
+                }))
+                .orElse(null);
+    }
+
+    private boolean fitsDailyLimit(List<PoiEntity> currentDay, PoiEntity candidate, TripRequestEntity request) {
+        List<PoiEntity> proposed = new ArrayList<>(currentDay);
+        proposed.add(candidate);
+        proposed.sort(Comparator.comparingInt(this::closeMinute).thenComparing(PoiEntity::getName));
+
+        LocalTime cursor = LocalTime.of(9, 0);
+        PoiEntity previous = null;
+        boolean lunchAdded = false;
+        for (PoiEntity poi : proposed) {
+            int travel = previous == null ? 0 : approximateRouteMinutes(previous, poi);
+            LocalTime arrival = cursor.plusMinutes(travel);
+            Integer open = openMinute(poi);
+            if (open != null && arrival.isBefore(LocalTime.of(open / 60, open % 60))) {
+                arrival = LocalTime.of(open / 60, open % 60);
+            }
+            int duration = poi.getDurationMinutes() == null ? 60 : poi.getDurationMinutes();
+            if (!lunchAdded && arrival.plusMinutes(duration).isAfter(LocalTime.NOON)
+                    && arrival.isBefore(LocalTime.of(13, 30))) {
+                arrival = arrival.isAfter(LocalTime.of(11, 45)) ? arrival.plusMinutes(15) : LocalTime.of(11, 45);
+                arrival = arrival.plusMinutes(60);
+                lunchAdded = true;
+            }
+            LocalTime end = arrival.plusMinutes(duration);
+            Integer close = closeMinuteOrNull(poi);
+            if (close != null && end.isAfter(LocalTime.of(close / 60, close % 60))) {
+                return false;
+            }
+            cursor = end;
+            previous = poi;
+        }
+        LocalTime latest = LocalTime.of("RELAXED".equals(request.getPace()) ? 18 : 19, 30);
+        return !cursor.isAfter(latest);
+    }
+
+    private void orderByNearestNeighbor(List<PoiEntity> group) {
+        if (group.size() < 3) {
+            return;
+        }
+        List<PoiEntity> remaining = new ArrayList<>(group);
+        List<PoiEntity> ordered = new ArrayList<>();
+        PoiEntity current = remaining.stream()
+                .min(Comparator
+                        .comparingInt(this::closeMinute)
+                        .thenComparing(PoiEntity::getName))
+                .orElseThrow();
+        remaining.remove(current);
+        ordered.add(current);
+        while (!remaining.isEmpty()) {
+            PoiEntity origin = current;
+            PoiEntity nearest = remaining.stream()
+                    .min(Comparator
+                            .comparingInt(this::closeMinute)
+                            .thenComparingDouble(poi -> distanceKm(origin, poi)))
+                    .orElseThrow();
+            remaining.remove(nearest);
+            ordered.add(nearest);
+            current = nearest;
+        }
+        group.clear();
+        group.addAll(ordered);
+    }
+
+    private int closeMinute(PoiEntity poi) {
+        Integer close = closeMinuteOrNull(poi);
+        return close == null ? 23 * 60 : close;
+    }
+
+    private Integer closeMinuteOrNull(PoiEntity poi) {
+        String close = poi.getCloseTime();
+        if (close == null || !close.matches("\\d{1,2}:\\d{2}")) {
+            return null;
+        }
+        LocalTime time = LocalTime.parse(close);
+        return time.getHour() * 60 + time.getMinute();
+    }
+
+    private Integer openMinute(PoiEntity poi) {
+        String open = poi.getOpenTime();
+        if (open == null || !open.matches("\\d{1,2}:\\d{2}")) {
+            return null;
+        }
+        LocalTime time = LocalTime.parse(open);
+        return time.getHour() * 60 + time.getMinute();
+    }
+
+    private int approximateRouteMinutes(PoiEntity from, PoiEntity to) {
+        double distance = distanceKm(from, to);
+        if (distance <= 1.5) {
+            return Math.max(6, (int) Math.ceil(distance / 4.5 * 60 + 4));
+        }
+        return Math.max(15, (int) Math.ceil(distance / 18 * 60 + 8));
+    }
+
+    private int preferenceScore(PoiEntity poi, Set<String> interests, TripRequestEntity request) {
+        int matches = (int) csvValues(poi.getTags()).stream().filter(interests::contains).count();
+        int score = matches * 120;
+        if (request.getRawPrompt().contains(poi.getArea())) {
+            score += 35;
+        }
+        if ("RELAXED".equals(request.getPace()) && poi.getDurationMinutes() != null && poi.getDurationMinutes() > 120) {
+            score -= 25;
+        }
+        if (request.getBudget() != null && request.getBudget().compareTo(BigDecimal.valueOf(1500)) < 0
+                && poi.getTicketPrice() != null && poi.getTicketPrice().compareTo(BigDecimal.valueOf(100)) > 0) {
+            score -= 35;
+        }
+        return score;
+    }
+
+    private Set<String> inferInterestTags(String prompt, List<PoiEntity> allPois) {
+        Set<String> tags = new LinkedHashSet<>();
+        allPois.stream()
+                .flatMap(poi -> csvValues(poi.getTags()).stream())
+                .distinct()
+                .filter(prompt::contains)
+                .forEach(tags::add);
+
+        Map<String, List<String>> synonyms = Map.ofEntries(
+                Map.entry("建筑", List.of("建筑", "历史建筑", "城市更新")),
+                Map.entry("街区", List.of("街区", "城市漫步", "建筑")),
+                Map.entry("梧桐", List.of("街区", "建筑", "历史建筑")),
+                Map.entry("博物馆", List.of("博物馆", "人文", "历史")),
+                Map.entry("人文", List.of("人文", "历史", "历史建筑", "阅读")),
+                Map.entry("历史", List.of("历史", "人文", "历史建筑")),
+                Map.entry("艺术", List.of("艺术", "展览")),
+                Map.entry("展览", List.of("展览", "艺术")),
+                Map.entry("自然", List.of("公园", "园林", "科普")),
+                Map.entry("公园", List.of("公园", "休息")),
+                Map.entry("园林", List.of("园林", "建筑")),
+                Map.entry("亲子", List.of("亲子", "科普", "室内")),
+                Map.entry("孩子", List.of("亲子", "科普", "室内")),
+                Map.entry("夜景", List.of("夜景", "江景", "城市景观")),
+                Map.entry("江景", List.of("江景", "城市景观")),
+                Map.entry("美食", List.of("餐饮", "小吃")),
+                Map.entry("小吃", List.of("小吃", "餐饮")),
+                Map.entry("拍照", List.of("建筑", "街区", "园林", "城市景观")),
+                Map.entry("摄影", List.of("建筑", "街区", "园林", "城市景观")),
+                Map.entry("安静", List.of("公园", "阅读", "街区")),
+                Map.entry("人少", List.of("公园", "街区", "艺术")),
+                Map.entry("购物", List.of("购物", "街区"))
+        );
+        synonyms.forEach((keyword, relatedTags) -> {
+            if (prompt.contains(keyword)) {
+                tags.addAll(relatedTags);
+            }
+        });
+        return tags;
+    }
+
+    private List<PoiEntity> resolveExcludedPois(String prompt, List<PoiEntity> allPois) {
+        return allPois.stream()
+                .filter(poi -> mentionsPoi(prompt, poi) && isExcludedMention(prompt, poi))
+                .toList();
+    }
+
+    private boolean isExcludedMention(String message, PoiEntity poi) {
+        int nameIndex = Math.max(
+                message.indexOf(poi.getName()),
+                poi.getAliasName() == null ? -1 : message.indexOf(poi.getAliasName())
+        );
+        if (nameIndex < 0) {
+            return false;
+        }
+        int start = Math.max(0, nameIndex - 10);
+        String before = message.substring(start, nameIndex);
+        int nameEnd = Math.min(message.length(), nameIndex + poi.getName().length());
+        String after = message.substring(nameEnd).replaceFirst("^[，,。\\s]+", "");
+        return before.matches(".*(不去|不想去|排除|取消).*")
+                || after.matches("^(不去了|取消|不安排).*");
+    }
+
+    private void normalizePoiPreferences(TripRequestEntity entity, List<PoiEntity> allPois) {
+        Set<String> excluded = new LinkedHashSet<>(csvValues(entity.getExcludedPoiIds()));
+        List<String> cleanedMustSee = csvValues(entity.getMustSee()).stream()
+                .filter(id -> !excluded.contains(id))
+                .toList();
+        entity.setMustSee(String.join(",", cleanedMustSee));
+
+        Set<String> availableTags = allPois.stream()
+                .flatMap(poi -> csvValues(poi.getTags()).stream())
+                .collect(java.util.stream.Collectors.toSet());
+        List<String> cleanedInterests = csvValues(entity.getInterestTags()).stream()
+                .filter(availableTags::contains)
+                .distinct()
+                .limit(12)
+                .toList();
+        entity.setInterestTags(String.join(",", cleanedInterests));
+    }
+
+    private List<String> csvValues(String value) {
+        if (value == null || value.isBlank()) {
+            return List.of();
+        }
+        return java.util.Arrays.stream(value.split(","))
+                .map(String::trim)
+                .filter(item -> !item.isBlank())
+                .toList();
+    }
+
+    private double distanceKm(PoiEntity from, PoiEntity to) {
+        return distance(from.getLatitude(), from.getLongitude(), to.getLatitude(), to.getLongitude()) / 1000.0;
     }
 
     private String resolveCity(String prompt) {

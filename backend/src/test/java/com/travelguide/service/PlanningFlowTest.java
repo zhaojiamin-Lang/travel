@@ -47,7 +47,9 @@ class PlanningFlowTest {
         assertThat(draft.mustSee()).contains("bund", "shanghai-museum");
 
         PlanView plan = planningService.generatePlan(draft.requestId());
-        assertThat(plan.passed()).isTrue();
+        assertThat(plan.passed())
+                .withFailMessage("Plan issues: %s", plan.issues())
+                .isTrue();
         assertThat(plan.dayPlans()).hasSize(2);
         assertThat(plan.mapPoints()).isNotEmpty();
 
@@ -147,5 +149,45 @@ class PlanningFlowTest {
         var history = planningService.history(user.id());
         assertThat(history).isNotEmpty();
         assertThat(history.get(0).latestPlanId()).isNotBlank();
+    }
+
+    @Test
+    void usesNaturalLanguageInterestsInsteadOfAFixedRoute() {
+        var architecture = planningService.createDraft(new DraftRequest(
+                "interest-architecture",
+                "2030年4月6日去上海玩一天，预算 1600 元，喜欢建筑和梧桐街区，想拍照。"
+        ));
+        var nature = planningService.createDraft(new DraftRequest(
+                "interest-nature",
+                "2030年4月7日去上海玩一天，预算 1600 元，喜欢自然、公园和亲子活动。"
+        ));
+
+        assertThat(architecture.interestTags()).contains("建筑", "街区");
+        assertThat(nature.interestTags()).contains("公园", "亲子");
+
+        PlanView architecturePlan = planningService.generatePlan(architecture.requestId());
+        PlanView naturePlan = planningService.generatePlan(nature.requestId());
+        var architectureNames = architecturePlan.mapPoints().stream().map(point -> point.name()).toList();
+        var natureNames = naturePlan.mapPoints().stream().map(point -> point.name()).toList();
+
+        assertThat(architectureNames).isNotEqualTo(natureNames);
+        assertThat(architectureNames).anyMatch(name ->
+                name.contains("武康") || name.contains("思南") || name.contains("张园")
+        );
+        assertThat(natureNames).anyMatch(name ->
+                name.contains("自然") || name.contains("公园") || name.contains("迪士尼")
+        );
+    }
+
+    @Test
+    void excludesExplicitlyRejectedPlaces() {
+        var draft = planningService.createDraft(new DraftRequest(
+                "exclude-test",
+                "2030年4月8日去上海玩一天，预算 1600 元，想去外滩，但不去上海博物馆。"
+        ));
+        assertThat(draft.mustSee()).contains("bund").doesNotContain("shanghai-museum");
+        assertThat(draft.excludedPoiIds()).contains("shanghai-museum");
+        assertThat(planningService.generatePlan(draft.requestId()).mapPoints())
+                .noneMatch(point -> point.poiId().equals("shanghai-museum"));
     }
 }

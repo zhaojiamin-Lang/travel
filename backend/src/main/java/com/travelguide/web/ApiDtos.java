@@ -75,6 +75,8 @@ public final class ApiDtos {
             String pace,
             Boolean noSpicy,
             List<String> mustSee,
+            List<String> interestTags,
+            List<String> excludedPoiIds,
             List<String> missingFields,
             String summary,
             List<PoiView> suggestedPois

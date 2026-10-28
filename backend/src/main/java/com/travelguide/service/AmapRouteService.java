@@ -51,11 +51,14 @@ public class AmapRouteService {
     }
 
     private int estimateStraightLineMinutes(PoiEntity from, PoiEntity to) {
-        double distance = distanceMeters(
+        double distanceMeters = distanceMeters(
                 from.getLatitude(), from.getLongitude(), to.getLatitude(), to.getLongitude()
         );
-        double walkingSpeed = 1.15;
-        return Math.max(8, (int) Math.ceil(distance / walkingSpeed / 60 + 4));
+        double distanceKm = distanceMeters / 1000.0;
+        if (distanceKm <= 1.5) {
+            return Math.max(6, (int) Math.ceil(distanceKm / 4.5 * 60 + 4));
+        }
+        return Math.max(15, (int) Math.ceil(distanceKm / 18 * 60 + 8));
     }
 
     private double distanceMeters(double lat1, double lng1, double lat2, double lng2) {
