@@ -9,6 +9,7 @@
  */
 import type {
   Bootstrap,
+  DayOptimization,
   Draft,
   GuideSession,
   HistoryItem,
@@ -20,6 +21,7 @@ import type {
   Poi,
   RollbackResult,
   User,
+  WeatherSnapshot,
 } from '../types'
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api'
@@ -51,6 +53,26 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   bootstrap() {
     return request<Bootstrap>('/bootstrap')
+  },
+
+  latestWeather() {
+    return request<WeatherSnapshot>('/weather/latest')
+  },
+
+  optimizeDay(
+    planId: string,
+    dayNumber: number,
+    payload: {
+      delayMinutes?: number
+      lockedItemIds?: string[]
+      excludedItemIds?: string[]
+      maxSolveSeconds?: number
+    },
+  ) {
+    return request<DayOptimization>(`/optimizer/plans/${planId}/days/${dayNumber}`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
   },
 
   pois() {

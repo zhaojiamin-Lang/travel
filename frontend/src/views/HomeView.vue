@@ -15,7 +15,9 @@ import {
   CalendarDays,
   Check,
   ChevronRight,
+  CloudSun,
   Compass,
+  History,
   MapPin,
   Route,
   Sparkles,
@@ -24,7 +26,7 @@ import {
 import SiteHeader from '../components/SiteHeader.vue'
 import { api } from '../services/api'
 import { useTripStore } from '../services/tripStore'
-import type { Bootstrap, Draft, Poi } from '../types'
+import type { Draft, HistoryItem, Poi, WeatherSnapshot } from '../types'
 
 const router = useRouter()
 const tripStore = useTripStore()
@@ -34,6 +36,11 @@ const loading = ref(false)
 const slotOpen = ref(false)
 const error = ref('')
 const draft = ref<Draft | null>(null)
+const bootstrapLoading = ref(true)
+const bootstrapError = ref('')
+const weather = ref<WeatherSnapshot | null>(null)
+const recentTrip = ref<HistoryItem | null>(null)
+const promptTouched = ref(false)
 
 const preferences = reactive({
   startDate: nextSaturday(),
@@ -44,78 +51,33 @@ const preferences = reactive({
   noSpicy: true,
 })
 
-const fallbackBootstrap: Bootstrap = {
-  city: '上海',
-  seasonLabel: '秋日 · 适合慢慢走',
-  curatedPoiCount: 30,
-  aiMode: '本地规则演示',
-  suggestedPrompts: [],
-  featuredPois: [
-    {
-      id: 'bund',
-      name: '外滩',
-      type: 'SCENIC',
-      area: '黄浦',
-      latitude: 31.2397,
-      longitude: 121.4905,
-      durationMinutes: 90,
-      ticketPrice: 0,
-      openTime: '全天',
-      closeTime: '',
-      tags: ['城市景观', '建筑', '夜景'],
-      accent: '#C96B45',
-      summary: '沿黄浦江西岸展开的城市天际线，是把上海历史与当代放在同一幅画面里的地方。',
-      history: '',
-      sourceName: '演示资料',
-      dataConfidence: 'DEMO',
-    },
-    {
-      id: 'wukang-road',
-      name: '武康路',
-      type: 'STREET',
-      area: '徐汇',
-      latitude: 31.205,
-      longitude: 121.438,
-      durationMinutes: 80,
-      ticketPrice: 0,
-      openTime: '全天',
-      closeTime: '',
-      tags: ['城市漫步', '建筑', '街区'],
-      accent: '#806B55',
-      summary: '梧桐树与历史建筑共同形成的街区，适合从地标转向街巷观察。',
-      history: '',
-      sourceName: '演示资料',
-      dataConfidence: 'DEMO',
-    },
-    {
-      id: 'yuyuan',
-      name: '豫园',
-      type: 'GARDEN',
-      area: '黄浦',
-      latitude: 31.227,
-      longitude: 121.492,
-      durationMinutes: 90,
-      ticketPrice: 30,
-      openTime: '09:00',
-      closeTime: '16:30',
-      tags: ['园林', '人文', '建筑'],
-      accent: '#5F7651',
-      summary: '在密集市井中展开的江南园林，适合观察空间转折、漏窗和园林尺度。',
-      history: '',
-      sourceName: '演示资料',
-      dataConfidence: 'DEMO',
-    },
-  ],
-}
-
-const bootstrap = computed(() => tripStore.bootstrap || fallbackBootstrap)
-const featured = computed(() => bootstrap.value.featuredPois.slice(0, 3))
+const bootstrap = computed(() => tripStore.bootstrap)
+const featured = computed(() => bootstrap.value?.featuredPois.slice(0, 3) ?? [])
 
 onMounted(async () => {
   try {
     tripStore.bootstrap = await api.bootstrap()
+    if (!promptTouched.value && tripStore.bootstrap.suggestedPrompts[0]) {
+      prompt.value = tripStore.bootstrap.suggestedPrompts[0]
+    }
+  } catch (reason) {
+    bootstrapError.value = reason instanceof Error ? reason.message : '旅行数据加载失败'
+  } finally {
+    bootstrapLoading.value = false
+  }
+
+  api.latestWeather().then((data) => {
+    weather.value = data
+  }).catch(() => {
+    weather.value = null
+  })
+
+  try {
+    await api.currentUser()
+    const history = await api.history()
+    recentTrip.value = history[0] || null
   } catch {
-    tripStore.bootstrap = fallbackBootstrap
+    recentTrip.value = null
   }
 })
 
@@ -129,6 +91,7 @@ function nextSaturday() {
 
 function choosePrompt(value: string) {
   prompt.value = value
+  promptTouched.value = true
   promptInput.value?.focus()
 }
 
@@ -221,7 +184,17 @@ function scrollToPlanner() {
               <span>行</span>
               <span>漫</span>
             </div>
-            <p><strong>30+</strong> 个上海精选目的地<br /><span>为轻松的旅行方式而整理</span></p>
+            <p>
+              <strong>{{ bootstrap?.curatedPoiCount ?? '—' }}</strong> 个{{ bootstrap?.city || '城市' }}精选目的地
+              <br /><span>为轻松的旅行方式而整理</span>
+            </p>
+            <div v-if="weather?.forecasts[0]" class="weather-pill">
+              <CloudSun :size="15" />
+              <span>
+                {{ weather.city }} {{ weather.forecasts[0].dayWeather }}
+                {{ weather.forecasts[0].nightTemperature }}–{{ weather.forecasts[0].dayTemperature }}℃
+              </span>
+            </div>
           </div>
         </div>
 
@@ -261,7 +234,7 @@ function scrollToPlanner() {
             <span class="route-note__dot"></span>
             <div>
               <small>NEXT STOP</small>
-              <strong>武康路 · 15:30</strong>
+              <strong>{{ featured[0]?.name || '正在读取旅行数据' }} · {{ featured[0]?.area || bootstrap?.city || '—' }}</strong>
             </div>
             <ArrowRight :size="18" :stroke-width="1.6" />
           </div>
@@ -278,7 +251,7 @@ function scrollToPlanner() {
                 <small>用自然语言说说你的想法</small>
               </div>
             </div>
-            <span class="ai-mode"><i></i>{{ bootstrap.aiMode }}</span>
+            <span class="ai-mode"><i></i>{{ bootstrap?.aiMode || (bootstrapLoading ? '正在连接旅行数据' : '服务暂不可用') }}</span>
           </div>
 
           <div class="prompt-box">
@@ -288,6 +261,7 @@ function scrollToPlanner() {
               rows="3"
               aria-label="描述你的旅行计划"
               placeholder="例如：下周末去上海，想慢慢逛，不要太多人……"
+              @input="promptTouched = true"
               @keydown.meta.enter="beginPlanning"
               @keydown.ctrl.enter="beginPlanning"
             ></textarea>
@@ -300,14 +274,16 @@ function scrollToPlanner() {
 
           <div class="prompt-footer">
             <div class="quick-prompts">
-              <button type="button" @click="choosePrompt('周末在上海慢游一天，喜欢建筑和街区，预算 800 元。')">
-                <Route :size="14" /> 城市慢游
-              </button>
-              <button type="button" @click="choosePrompt('下个月去上海三天，预算 5000 元，想多看博物馆，每天轻松一点。')">
-                <Compass :size="14" /> 人文深度
-              </button>
-              <button type="button" @click="choosePrompt('带家人去上海两天，预算 3500 元，想少走路，吃清淡一点。')">
-                <Users :size="14" /> 家庭出游
+              <button
+                v-for="(suggestion, index) in (bootstrap?.suggestedPrompts || []).slice(0, 3)"
+                :key="suggestion"
+                type="button"
+                @click="choosePrompt(suggestion)"
+              >
+                <Route v-if="index === 0" :size="14" />
+                <Compass v-else-if="index === 1" :size="14" />
+                <Users v-else :size="14" />
+                灵感 {{ index + 1 }}
               </button>
             </div>
             <span class="prompt-hint">⌘ ↵ 快速生成</span>
@@ -323,10 +299,17 @@ function scrollToPlanner() {
             <p class="eyebrow">Curated for now</p>
             <h2>本季，值得停留的地方</h2>
           </div>
-          <p>不是更多景点，是更适合此刻的节奏。<br />{{ bootstrap.seasonLabel }}</p>
+          <p>不是更多景点，是更适合此刻的节奏。<br />{{ bootstrap?.seasonLabel || '正在从数据库读取城市内容' }}</p>
         </div>
 
-        <div class="inspiration-grid">
+        <div v-if="bootstrapLoading" class="inspiration-grid">
+          <article v-for="index in 4" :key="index" class="place-card place-card--skeleton"></article>
+        </div>
+        <div v-else-if="bootstrapError" class="data-error">
+          <span>暂时无法读取景点数据</span>
+          <p>{{ bootstrapError }}</p>
+        </div>
+        <div v-else class="inspiration-grid">
           <article
             v-for="(poi, index) in featured"
             :key="poi.id"
@@ -367,6 +350,20 @@ function scrollToPlanner() {
             </span>
           </article>
         </div>
+
+        <article
+          v-if="recentTrip?.latestPlanId"
+          class="recent-trip"
+          @click="router.push({ name: 'plan', params: { planId: recentTrip.latestPlanId } })"
+        >
+          <span class="recent-trip__icon"><History :size="18" /></span>
+          <div>
+            <small>CONTINUE YOUR STORY</small>
+            <strong>{{ recentTrip.summary }}</strong>
+            <span>{{ recentTrip.planCount }} 个版本 · 继续查看</span>
+          </div>
+          <ArrowRight :size="17" />
+        </article>
       </section>
 
       <section id="how-it-works" class="how-it-works page-shell">
@@ -563,6 +560,7 @@ main,
   align-items: center;
   gap: 15px;
   margin-top: 38px;
+  flex-wrap: wrap;
 }
 
 .avatar-stack {
@@ -606,6 +604,23 @@ main,
 
 .hero__proof span {
   opacity: 0.8;
+}
+
+.weather-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+  padding: 7px 10px;
+  border: 1px solid rgba(45, 87, 66, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 253, 247, 0.56);
+  color: var(--muted-strong);
+  font-size: 9px;
+}
+
+.weather-pill svg {
+  color: var(--clay);
 }
 
 .hero__visual {
@@ -1155,6 +1170,104 @@ main,
 
 .place-card--prompt .place-card__tag {
   color: #d6b984;
+}
+
+.place-card--skeleton {
+  min-height: 330px;
+  cursor: default;
+  background: linear-gradient(100deg, #ece7da 20%, #f8f4ea 40%, #ece7da 60%);
+  background-size: 220% 100%;
+  animation: skeleton 1.5s ease-in-out infinite;
+}
+
+.place-card--skeleton:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.data-error {
+  padding: 38px;
+  border: 1px dashed rgba(74, 97, 82, 0.2);
+  border-radius: 16px;
+  background: rgba(255, 253, 247, 0.48);
+  text-align: center;
+}
+
+.data-error span {
+  color: var(--forest);
+  font-family: var(--font-display);
+  font-size: 20px;
+}
+
+.data-error p {
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.recent-trip {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  gap: 13px;
+  align-items: center;
+  margin-top: 16px;
+  padding: 14px 17px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 253, 247, 0.58);
+  cursor: pointer;
+  transition: transform 180ms ease, background 180ms ease;
+}
+
+.recent-trip:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 253, 247, 0.9);
+}
+
+.recent-trip__icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(45, 91, 69, 0.1);
+  color: var(--forest);
+}
+
+.recent-trip > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.recent-trip small {
+  color: var(--clay);
+  font-size: 6px;
+  letter-spacing: 0.12em;
+}
+
+.recent-trip strong {
+  overflow: hidden;
+  color: var(--forest);
+  font-family: var(--font-display);
+  font-size: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-trip span {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+@keyframes skeleton {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
 }
 
 .place-card__round {

@@ -220,3 +220,49 @@ export interface PlanExplanation {
   source: 'QWEN_SPRING_AI' | 'DETERMINISTIC_FALLBACK'
   diff: PlanDiff
 }
+
+export interface WeatherCast {
+  date: string
+  weekday: string
+  dayWeather: string
+  nightWeather: string
+  dayTemperature: string
+  nightTemperature: string
+  dayWind: string
+  nightWind: string
+}
+
+export interface WeatherSnapshot {
+  city: string
+  adcode: string
+  status: 'FRESH' | 'STALE' | 'ERROR' | 'UNCONFIGURED'
+  source: string
+  lastAttemptAt?: string
+  lastSuccessAt?: string
+  forecasts: WeatherCast[]
+  error?: string
+}
+
+export interface OptimizedStop {
+  itemId: string
+  poiId: string
+  name: string
+  startTime: string
+  endTime: string
+  durationMinutes: number
+  travelMinutesFromPrevious: number
+  originalPosition: number
+  optimizedPosition: number
+}
+
+export interface DayOptimization {
+  planId: string
+  dayNumber: number
+  solver: string
+  status: string
+  objectiveValue: number
+  solveSeconds: number
+  stopCount: number
+  stops: OptimizedStop[]
+  notes: string[]
+}

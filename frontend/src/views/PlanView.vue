@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock3,
+  CloudSun,
   Coffee,
   Compass,
   ExternalLink,
@@ -41,7 +42,16 @@ import RouteMap from '../components/RouteMap.vue'
 import SiteHeader from '../components/SiteHeader.vue'
 import { api } from '../services/api'
 import { useTripStore } from '../services/tripStore'
-import type { DayPlan, Plan, PlanDiff, PlanIntent, PlanItem, Poi } from '../types'
+import type {
+  DayOptimization,
+  DayPlan,
+  Plan,
+  PlanDiff,
+  PlanIntent,
+  PlanItem,
+  Poi,
+  WeatherSnapshot,
+} from '../types'
 
 const route = useRoute()
 const router = useRouter()
@@ -65,6 +75,10 @@ const diffLoading = ref(false)
 const diffExplanation = ref('')
 const explainingDiff = ref(false)
 const intentPreview = ref<PlanIntent | null>(null)
+const weather = ref<WeatherSnapshot | null>(null)
+const optimization = ref<DayOptimization | null>(null)
+const optimizing = ref(false)
+const optimizationOpen = ref(false)
 
 const activeDay = computed<DayPlan | undefined>(() => {
   return plan.value?.dayPlans.find((day) => day.dayNumber === activeDayNumber.value)
@@ -91,6 +105,11 @@ onMounted(async () => {
     }
     tripStore.loadPlan(plan.value)
     versions.value = await api.getVersions(plan.value.requestId).catch(() => [plan.value as Plan])
+    api.latestWeather().then((data) => {
+      weather.value = data
+    }).catch(() => {
+      weather.value = null
+    })
     if (!tripStore.bootstrap) {
       api.bootstrap().then((data) => {
         tripStore.bootstrap = data
@@ -232,6 +251,31 @@ async function refinePlan() {
 
 function clearIntentPreview() {
   intentPreview.value = null
+}
+
+async function optimizeActiveDay() {
+  if (!plan.value || optimizing.value) return
+  optimizing.value = true
+  error.value = ''
+  try {
+    const lockedItemId = activeDay.value?.items.find((item) => item.type === 'POI')?.id
+    optimization.value = await api.optimizeDay(plan.value.id, activeDayNumber.value, {
+      delayMinutes: 0,
+      lockedItemIds: lockedItemId ? [lockedItemId] : [],
+      excludedItemIds: [],
+      maxSolveSeconds: 3,
+    })
+    optimizationOpen.value = true
+  } catch (reason) {
+    error.value = reason instanceof Error ? reason.message : 'CP-SAT 优化失败'
+  } finally {
+    optimizing.value = false
+  }
+}
+
+function planWeather() {
+  if (!weather.value?.forecasts.length || !plan.value) return null
+  return weather.value.forecasts.find((item) => item.date === plan.value?.startDate) || weather.value.forecasts[0]
 }
 
 function normalizeIntent(intent: PlanIntent, original: string) {
@@ -383,10 +427,16 @@ function goHome() {
         <div class="plan-layout">
           <section class="itinerary">
             <div class="plan-toolbar">
-              <button type="button" @click="openVersions">
-                <History :size="15" /> 版本历史
-                <span>v{{ plan.version }}</span>
-              </button>
+              <div class="plan-toolbar__actions">
+                <button type="button" @click="openVersions">
+                  <History :size="15" /> 版本历史
+                  <span>v{{ plan.version }}</span>
+                </button>
+                <button type="button" :disabled="optimizing" @click="optimizeActiveDay">
+                  <Sparkles :size="15" />
+                  {{ optimizing ? '求解中' : 'CP-SAT 优化当天' }}
+                </button>
+              </div>
               <span>{{ versions.length }} 个版本保留</span>
             </div>
             <div class="day-tabs" role="tablist" aria-label="选择行程日期">
@@ -522,6 +572,18 @@ function goHome() {
                 <span :style="{ width: `${budgetRatio}%` }"></span>
               </div>
               <p>已按 {{ plan.people }} 人估算门票、餐饮与市内交通。</p>
+            </section>
+
+            <section v-if="planWeather()" class="weather-card">
+              <div class="panel-heading">
+                <span><CloudSun :size="16" /> 行程天气</span>
+                <small>{{ weather?.status === 'FRESH' ? '实时天气服务' : '缓存数据' }}</small>
+              </div>
+              <div class="weather-card__body">
+                <strong>{{ planWeather()?.dayWeather }}</strong>
+                <span>{{ planWeather()?.nightTemperature }}–{{ planWeather()?.dayTemperature }}℃</span>
+                <p>{{ planWeather()?.date }} · {{ planWeather()?.dayWind }}风</p>
+              </div>
             </section>
 
             <section class="refine-card">
@@ -713,6 +775,40 @@ function goHome() {
               <span class="spinner spinner--dark"></span>
               <p>正在寻找合适替代...</p>
             </div>
+          </section>
+        </div>
+      </Transition>
+
+      <Transition name="sheet">
+        <div v-if="optimizationOpen && optimization" class="dialog-backdrop" @click.self="optimizationOpen = false">
+          <section class="optimization-dialog">
+            <header>
+              <div>
+                <p class="eyebrow">CP-SAT PREVIEW</p>
+                <h2>第 {{ optimization.dayNumber }} 天优化预览</h2>
+                <p>只调整当前天，原始行程不会自动改变。</p>
+              </div>
+              <button type="button" aria-label="关闭" @click="optimizationOpen = false"><X :size="18" /></button>
+            </header>
+            <div class="solver-meta">
+              <span>{{ optimization.solver }}</span>
+              <span>{{ optimization.status }}</span>
+              <span>{{ optimization.stopCount }} 站</span>
+              <span>{{ optimization.solveSeconds.toFixed(3) }} 秒</span>
+            </div>
+            <div class="optimized-list">
+              <article v-for="stop in optimization.stops" :key="stop.itemId">
+                <span>{{ String(stop.optimizedPosition + 1).padStart(2, '0') }}</span>
+                <div>
+                  <strong>{{ stop.name }}</strong>
+                  <p>{{ stop.startTime }}–{{ stop.endTime }} · {{ stop.durationMinutes }} 分钟</p>
+                </div>
+                <small v-if="stop.travelMinutesFromPrevious > 0">
+                  路程 {{ stop.travelMinutesFromPrevious }} 分钟
+                </small>
+              </article>
+            </div>
+            <p v-for="note in optimization.notes" :key="note" class="solver-note">{{ note }}</p>
           </section>
         </div>
       </Transition>
@@ -1075,7 +1171,13 @@ function goHome() {
   margin-bottom: 14px;
 }
 
-.plan-toolbar > button {
+.plan-toolbar__actions {
+  display: flex;
+  gap: 7px;
+}
+
+.plan-toolbar > button,
+.plan-toolbar__actions > button {
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -1088,7 +1190,8 @@ function goHome() {
   cursor: pointer;
 }
 
-.plan-toolbar > button span {
+.plan-toolbar > button span,
+.plan-toolbar__actions > button span {
   padding: 2px 6px;
   border-radius: 999px;
   background: rgba(37, 80, 62, 0.09);
@@ -1493,6 +1596,7 @@ function goHome() {
 
 .map-card,
 .budget-card,
+.weather-card,
 .refine-card,
 .verified-card,
 .tips-card {
@@ -1500,6 +1604,42 @@ function goHome() {
   border: 1px solid var(--line);
   border-radius: 16px;
   background: rgba(255, 253, 247, 0.75);
+}
+
+.weather-card {
+  padding: 17px;
+}
+
+.weather-card__body {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 5px;
+  align-items: end;
+  padding: 13px;
+  border-radius: 11px;
+  background:
+    radial-gradient(circle at 88% 14%, rgba(255, 240, 205, 0.34), transparent 28%),
+    linear-gradient(135deg, #3b6552, #234c3d);
+  color: #fff;
+}
+
+.weather-card__body strong {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 500;
+}
+
+.weather-card__body > span {
+  color: #f0d6a8;
+  font-family: var(--font-display);
+  font-size: 17px;
+}
+
+.weather-card__body p {
+  grid-column: span 2;
+  margin: 3px 0 0;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 8px;
 }
 
 .refine-card {
@@ -1772,7 +1912,8 @@ function goHome() {
 }
 
 .versions-dialog,
-.swap-dialog {
+.swap-dialog,
+.optimization-dialog {
   width: min(690px, 100%);
   max-height: min(720px, calc(100vh - 48px));
   padding: 27px;
@@ -1784,7 +1925,8 @@ function goHome() {
 }
 
 .versions-dialog header,
-.swap-dialog header {
+.swap-dialog header,
+.optimization-dialog header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -1792,7 +1934,8 @@ function goHome() {
 }
 
 .versions-dialog h2,
-.swap-dialog h2 {
+.swap-dialog h2,
+.optimization-dialog h2 {
   margin: 11px 0 0;
   color: var(--forest);
   font-family: var(--font-display);
@@ -1802,7 +1945,8 @@ function goHome() {
 }
 
 .versions-dialog header > button,
-.swap-dialog header > button {
+.swap-dialog header > button,
+.optimization-dialog header > button {
   display: grid;
   width: 34px;
   height: 34px;
@@ -1813,6 +1957,83 @@ function goHome() {
   background: transparent;
   color: var(--forest);
   cursor: pointer;
+}
+
+.optimization-dialog header p:last-child {
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.solver-meta {
+  display: flex;
+  gap: 6px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.solver-meta span {
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: rgba(52, 92, 70, 0.08);
+  color: #567061;
+  font-size: 7px;
+}
+
+.optimized-list {
+  display: flex;
+  gap: 7px;
+  margin-top: 15px;
+  flex-direction: column;
+}
+
+.optimized-list article {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  gap: 11px;
+  align-items: center;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 253, 247, 0.7);
+}
+
+.optimized-list article > span {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--forest);
+  color: #fff1d8;
+  font-family: var(--font-display);
+  font-size: 10px;
+}
+
+.optimized-list article > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.optimized-list strong {
+  color: var(--forest);
+  font-family: var(--font-display);
+  font-size: 15px;
+}
+
+.optimized-list p,
+.optimized-list small {
+  margin: 0;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.solver-note {
+  margin: 9px 0 0;
+  color: #7c847c;
+  font-size: 8px;
+  line-height: 1.6;
 }
 
 .versions-list {
@@ -2276,7 +2497,8 @@ function goHome() {
   }
 
   .versions-dialog,
-  .swap-dialog {
+  .swap-dialog,
+  .optimization-dialog {
     max-height: 82vh;
     padding: 21px;
     border-radius: 20px;
