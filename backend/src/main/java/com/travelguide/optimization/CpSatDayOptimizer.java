@@ -34,6 +34,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * Optional CP-SAT solver for complex single-day rescheduling.
+ *
+ * <p>The existing rule planner remains the default. CP-SAT is invoked only by
+ * the optimizer API and returns a preview without changing the stored plan.</p>
+ */
 @Service
 public class CpSatDayOptimizer {
 

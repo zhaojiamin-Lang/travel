@@ -15,6 +15,12 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+/**
+ * Holds active SSE connections and fans out weather and replan events.
+ *
+ * <p>Proposal events are delivered to the matching plan channel and to global
+ * listeners. Weather and heartbeat events are delivered to all connections.</p>
+ */
 @Service
 public class ReplanNotificationHub {
 

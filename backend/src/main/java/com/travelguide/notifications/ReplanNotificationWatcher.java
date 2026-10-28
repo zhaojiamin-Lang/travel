@@ -12,6 +12,12 @@ import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
 
+/**
+ * Detects durable weather and proposal changes and forwards them to SSE.
+ *
+ * <p>Watching persisted state avoids coupling notification delivery to the
+ * existing weather and replan business services.</p>
+ */
 @Service
 public class ReplanNotificationWatcher {
 

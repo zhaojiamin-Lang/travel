@@ -21,6 +21,13 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Defines the boundary between Qwen and deterministic planning logic.
+ *
+ * <p>Qwen interprets intent and phrases explanations. Java validates IDs,
+ * recalculates times, computes diffs and remains the only component allowed to
+ * create versions.</p>
+ */
 @Service
 public class PlanIntelligenceService {
 

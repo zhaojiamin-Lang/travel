@@ -9,6 +9,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+/**
+ * Applies rollback through the existing version service.
+ *
+ * <p>A rollback creates a new latest version instead of mutating history. If
+ * the selected version already matches the latest content, no duplicate
+ * version is created.</p>
+ */
 @Service
 public class PlanRollbackService {
 

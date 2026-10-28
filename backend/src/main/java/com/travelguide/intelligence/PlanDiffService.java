@@ -22,9 +22,19 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+/**
+ * Computes business-level differences between two immutable itinerary versions.
+ *
+ * <p>The service compares structured items rather than raw JSON text. It never
+ * calls an LLM and never mutates either version.</p>
+ */
 @Service
 public class PlanDiffService {
 
+    /**
+     * Produces a semantic diff from {@code from} to {@code to}. Both plans must
+     * belong to the same trip request.
+     */
     public PlanDiffView diff(PlanView from, PlanView to) {
         if (!Objects.equals(from.requestId(), to.requestId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "只能比较同一行程的版本");

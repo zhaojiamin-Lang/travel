@@ -19,6 +19,12 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Consumes closure and delay events and stores a reviewable replan proposal.
+ *
+ * <p>Event handling never overwrites the current plan. Acceptance is a
+ * separate operation that creates a new immutable version.</p>
+ */
 @Component
 public class ReplanEventListener {
 
@@ -45,6 +51,9 @@ public class ReplanEventListener {
         this.objectMapper = objectMapper;
     }
 
+    /**
+     * Handles a closure by removing the affected stop and recalculating routes.
+     */
     @EventListener
     @Transactional
     public void onClosure(ClosureReportedEvent event) {
@@ -60,6 +69,9 @@ public class ReplanEventListener {
         );
     }
 
+    /**
+     * Handles a delay while preserving the current stop and shifting the rest.
+     */
     @EventListener
     @Transactional
     public void onDelay(DelayReportedEvent event) {

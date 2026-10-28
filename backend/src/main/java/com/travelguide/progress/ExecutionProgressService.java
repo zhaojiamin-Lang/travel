@@ -20,6 +20,12 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+/**
+ * Persists the user's current execution progress for an itinerary.
+ *
+ * <p>The row is keyed by plan ID and protected by an optimistic revision to
+ * prevent concurrent updates from overwriting each other.</p>
+ */
 @Service
 public class ExecutionProgressService {
 
@@ -37,6 +43,9 @@ public class ExecutionProgressService {
         this.objectMapper = objectMapper;
     }
 
+    /**
+     * Creates an initial NOT_STARTED row when progress has not been reported.
+     */
     @Transactional
     public ProgressView getOrCreate(String planId) {
         ExecutionProgressEntity entity = repository.findByPlanId(planId).orElse(null);
@@ -54,6 +63,9 @@ public class ExecutionProgressService {
         return toView(entity);
     }
 
+    /**
+     * Validates item IDs against the plan, then persists the latest progress.
+     */
     @Transactional
     public ProgressView save(String planId, SaveProgressRequest request) {
         PlanView plan = planningService.getPlan(planId);
@@ -102,6 +114,9 @@ public class ExecutionProgressService {
         return toView(repository.saveAndFlush(entity));
     }
 
+    /**
+     * Automatically records delay data published by the event-driven replanner.
+     */
     @Transactional
     public void recordDelayEvent(com.travelguide.replan.ReplanModels.DelayReportedEvent event) {
         ExecutionProgressEntity entity = repository.findByPlanId(event.planId()).orElseGet(() -> {
