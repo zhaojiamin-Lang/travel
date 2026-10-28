@@ -14,10 +14,7 @@ import {
   ArrowRight,
   CalendarDays,
   Check,
-  ChevronRight,
-  CloudSun,
   Compass,
-  History,
   MapPin,
   Route,
   Sparkles,
@@ -26,7 +23,7 @@ import {
 import SiteHeader from '../components/SiteHeader.vue'
 import { api } from '../services/api'
 import { useTripStore } from '../services/tripStore'
-import type { Draft, HistoryItem, Poi, WeatherSnapshot } from '../types'
+import type { Draft } from '../types'
 
 const router = useRouter()
 const tripStore = useTripStore()
@@ -38,8 +35,6 @@ const error = ref('')
 const draft = ref<Draft | null>(null)
 const bootstrapLoading = ref(true)
 const bootstrapError = ref('')
-const weather = ref<WeatherSnapshot | null>(null)
-const recentTrip = ref<HistoryItem | null>(null)
 
 const preferences = reactive<{
   startDate: string
@@ -58,10 +53,7 @@ const preferences = reactive<{
 })
 
 const bootstrap = computed(() => tripStore.bootstrap)
-const featured = computed(() => bootstrap.value?.featuredPois.slice(0, 3) ?? [])
 const currentYear = new Date().getFullYear()
-const hasUserIntent = computed(() => prompt.value.trim().length > 0)
-const showDiscovery = computed(() => hasUserIntent.value || Boolean(recentTrip.value?.latestPlanId))
 
 onMounted(async () => {
   try {
@@ -72,19 +64,6 @@ onMounted(async () => {
     bootstrapLoading.value = false
   }
 
-  api.latestWeather().then((data) => {
-    weather.value = data
-  }).catch(() => {
-    weather.value = null
-  })
-
-  try {
-    await api.currentUser()
-    const history = await api.history()
-    recentTrip.value = history[0] || null
-  } catch {
-    recentTrip.value = null
-  }
 })
 
 function choosePrompt(value: string) {
@@ -150,20 +129,6 @@ async function generatePlan(requestId: string) {
   await router.push({ name: 'plan', params: { planId: plan.id } })
 }
 
-function cardStyle(poi: Poi) {
-  return {
-    '--accent': poi.accent,
-  }
-}
-
-function heroCoordinate() {
-  if (!hasUserIntent.value) {
-    return 'WAITING FOR YOUR STORY'
-  }
-  const poi = featured.value[0]
-  return poi ? `${poi.latitude.toFixed(2)}° N · ${poi.longitude.toFixed(2)}° E` : 'LOCATION FROM DATABASE'
-}
-
 function scrollToPlanner() {
   document.querySelector('#planner')?.scrollIntoView({ behavior: 'smooth' })
   window.setTimeout(() => promptInput.value?.focus(), 350)
@@ -189,28 +154,21 @@ function scrollToPlanner() {
           </p>
           <div class="hero__proof">
             <div class="avatar-stack" aria-hidden="true">
-              <span>沪</span>
-              <span>行</span>
+              <span>山</span>
+              <span>水</span>
               <span>漫</span>
             </div>
             <p>
-              <strong>{{ bootstrap?.curatedPoiCount ?? '—' }}</strong> 个{{ bootstrap?.city || '城市' }}精选目的地
+              <strong>{{ bootstrap?.curatedPoiCount ?? '—' }}</strong> 个数据库精选目的地
               <br /><span>为轻松的旅行方式而整理</span>
             </p>
-            <div v-if="hasUserIntent && weather?.forecasts[0]" class="weather-pill">
-              <CloudSun :size="15" />
-              <span>
-                {{ weather.city }} {{ weather.forecasts[0].dayWeather }}
-                {{ weather.forecasts[0].nightTemperature }}–{{ weather.forecasts[0].dayTemperature }}℃
-              </span>
-            </div>
           </div>
         </div>
 
-        <div class="hero__visual" :aria-label="`${bootstrap?.city || '城市'}漫游路线插画`">
+        <div class="hero__visual" aria-label="通用旅行路线插画">
           <div class="postcard postcard--back">
-            <span>{{ heroCoordinate() }}</span>
-            <span>{{ hasUserIntent ? bootstrap?.city || 'DESTINATION' : 'YOUR CITY' }}</span>
+            <span>WAITING FOR YOUR STORY</span>
+            <span>YOUR CITY</span>
           </div>
           <div class="postcard">
             <div class="postcard__top">
@@ -219,7 +177,7 @@ function scrollToPlanner() {
             </div>
             <div class="postcard__sky">
               <span class="sun"></span>
-              <svg viewBox="0 0 520 240" role="img" :aria-label="`抽象${bootstrap?.city || '城市'}天际线`">
+              <svg viewBox="0 0 520 240" role="img" aria-label="抽象城市与自然路线">
                 <path class="river" d="M0 185C80 159 119 210 203 178C290 144 348 176 520 130" />
                 <g class="far-buildings">
                   <path d="M30 160V109H53V160M70 160V87H103V160M118 160V122H144V160" />
@@ -229,13 +187,12 @@ function scrollToPlanner() {
                   <path d="M54 177V143H109V177M121 177V126H158V177M171 177V149H209V177" />
                   <path d="M306 177V139H351V177M365 177V110H397V177M409 177V146H462V177" />
                 </g>
-                <path class="tower" d="M235 169V79H246V54H255V22H264V54H275V79H286V169" />
-                <circle class="tower-dot" cx="255" cy="66" r="7" />
-                <circle class="tower-dot" cx="255" cy="103" r="5" />
+                <path class="tower" d="M235 169V95L250 74L266 95V169Z" />
+                <path class="tower-dot" d="M227 169C246 136 274 126 298 139C314 147 322 158 329 169Z" />
               </svg>
             </div>
             <div class="postcard__caption">
-              <span>{{ hasUserIntent ? `从${featured[0]?.area || bootstrap?.city || '目的地'}出发` : 'YOUR TRAVEL NOTES' }}</span>
+              <span>YOUR TRAVEL NOTES</span>
               <span>EST. {{ currentYear }}</span>
             </div>
           </div>
@@ -243,10 +200,7 @@ function scrollToPlanner() {
             <span class="route-note__dot"></span>
             <div>
               <small>NEXT STOP</small>
-              <strong v-if="hasUserIntent">
-                {{ featured[0]?.name || '正在读取旅行数据' }} · {{ featured[0]?.area || bootstrap?.city || '—' }}
-              </strong>
-              <strong v-else>写下目的地，开始规划</strong>
+              <strong>写下目的地，开始规划</strong>
             </div>
             <ArrowRight :size="18" :stroke-width="1.6" />
           </div>
@@ -304,77 +258,33 @@ function scrollToPlanner() {
         </div>
       </section>
 
-      <section v-if="showDiscovery" id="inspiration" class="inspiration page-shell">
+      <section id="inspiration" class="inspiration page-shell">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">Curated for now</p>
-            <h2>本季，值得停留的地方</h2>
+            <p class="eyebrow">Made from your words</p>
+            <h2>路线，从你的描述开始。</h2>
           </div>
-          <p>不是更多景点，是更适合此刻的节奏。<br />{{ bootstrap?.seasonLabel || '正在从数据库读取城市内容' }}</p>
+          <p>提交旅行需求后，系统才会从数据库中选择城市、景点和路线。<br />首页不预设任何目的地。</p>
         </div>
 
-        <div v-if="bootstrapLoading" class="inspiration-grid">
-          <article v-for="index in 4" :key="index" class="place-card place-card--skeleton"></article>
-        </div>
-        <div v-else-if="bootstrapError" class="data-error">
-          <span>暂时无法读取景点数据</span>
-          <p>{{ bootstrapError }}</p>
-        </div>
-        <div v-else class="inspiration-grid">
-          <article
-            v-for="(poi, index) in featured"
-            :key="poi.id"
-            class="place-card"
-            :class="{ 'place-card--wide': index === 0 }"
-            :style="cardStyle(poi)"
-            @click="choosePrompt(`我想去${bootstrap?.city || ''}${poi.name}，帮我安排一天的轻松行程。`)"
-          >
-            <div class="place-card__wash"></div>
-            <span class="place-card__index">0{{ index + 1 }}</span>
-            <div class="place-card__topline">
-              <span>{{ poi.area }} · {{ poi.tags[0] }}</span>
-              <span>{{ poi.durationMinutes }} MIN</span>
-            </div>
-            <div class="place-card__art" aria-hidden="true">
-              <span class="place-card__ring"></span>
-              <span class="place-card__line"></span>
-              <span class="place-card__pin"><MapPin :size="15" /></span>
-            </div>
-            <div class="place-card__body">
-              <span class="place-card__tag">{{ poi.tags.slice(0, 2).join(' / ') }}</span>
-              <h3>{{ poi.name }}</h3>
-              <p>{{ poi.summary }}</p>
-              <span class="place-card__link">
-                从这里开始 <ChevronRight :size="16" />
-              </span>
-            </div>
+        <div class="generic-inspiration">
+          <article>
+            <span>01</span>
+            <h3>城市与建筑</h3>
+            <p>从你的描述中提取建筑、街区和城市景观偏好。</p>
           </article>
-
-          <article class="place-card place-card--prompt" @click="scrollToPlanner">
-            <span class="place-card__index">04</span>
-            <div>
-              <span class="place-card__tag">MAKE IT YOURS</span>
-              <h3>或者，告诉我们<br />你的旅行关键词。</h3>
-            </div>
-            <span class="place-card__round">
-              <ArrowRight :size="22" :stroke-width="1.6" />
-            </span>
+          <article>
+            <span>02</span>
+            <h3>自然与亲子</h3>
+            <p>根据同行人群和体力要求选择更轻松的停留方式。</p>
+          </article>
+          <article>
+            <span>03</span>
+            <h3>由数据库生成</h3>
+            <p>只有提交需求后，才会查询真实景点、天气和路线。</p>
           </article>
         </div>
-
-        <article
-          v-if="recentTrip?.latestPlanId"
-          class="recent-trip"
-          @click="router.push({ name: 'plan', params: { planId: recentTrip.latestPlanId } })"
-        >
-          <span class="recent-trip__icon"><History :size="18" /></span>
-          <div>
-            <small>CONTINUE YOUR STORY</small>
-            <strong>{{ recentTrip.summary }}</strong>
-            <span>{{ recentTrip.planCount }} 个版本 · 继续查看</span>
-          </div>
-          <ArrowRight :size="17" />
-        </article>
+        <p v-if="bootstrapError" class="data-error">{{ bootstrapError }}</p>
       </section>
 
       <section id="how-it-works" class="how-it-works page-shell">
@@ -408,7 +318,7 @@ function scrollToPlanner() {
     <footer class="footer page-shell">
       <span class="serif">漫游 HERE</span>
       <p>慢一点，才能看见更多。</p>
-      <span>{{ hasUserIntent ? bootstrap?.city || '目的地' : 'YOUR JOURNEY' }} · {{ currentYear }}</span>
+      <span>YOUR JOURNEY · {{ currentYear }}</span>
     </footer>
 
     <Transition name="sheet">
@@ -979,6 +889,40 @@ main,
 
 .inspiration {
   padding: 115px 0 105px;
+}
+
+.generic-inspiration {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.generic-inspiration article {
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 17px;
+  background: rgba(255, 253, 247, 0.56);
+}
+
+.generic-inspiration article > span {
+  color: var(--clay);
+  font-family: var(--font-display);
+  font-size: 10px;
+}
+
+.generic-inspiration h3 {
+  margin: 28px 0 9px;
+  color: var(--forest);
+  font-family: var(--font-display);
+  font-size: 23px;
+  font-weight: 500;
+}
+
+.generic-inspiration p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.75;
 }
 
 .section-heading {
@@ -1673,6 +1617,10 @@ main,
 
   .inspiration {
     padding: 84px 0 76px;
+  }
+
+  .generic-inspiration {
+    grid-template-columns: 1fr;
   }
 
   .section-heading {
