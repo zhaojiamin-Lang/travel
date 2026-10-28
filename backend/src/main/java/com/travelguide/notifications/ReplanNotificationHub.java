@@ -16,10 +16,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * Holds active SSE connections and fans out weather and replan events.
+ * 管理活跃的 SSE 连接，并广播天气和重规划事件。
  *
- * <p>Proposal events are delivered to the matching plan channel and to global
- * listeners. Weather and heartbeat events are delivered to all connections.</p>
+ * <p>提案事件发送给对应行程频道及全局监听者；
+ * 天气和心跳事件发送给所有连接。</p>
  */
 @Service
 public class ReplanNotificationHub {

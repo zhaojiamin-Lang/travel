@@ -10,11 +10,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 /**
- * Applies rollback through the existing version service.
+ * 通过现有版本服务执行行程回滚。
  *
- * <p>A rollback creates a new latest version instead of mutating history. If
- * the selected version already matches the latest content, no duplicate
- * version is created.</p>
+ * <p>回滚会创建一个新的最新版本，不会覆盖历史版本；
+ * 如果所选版本已经与最新内容一致，则不会重复创建版本。</p>
  */
 @Service
 public class PlanRollbackService {
@@ -28,8 +27,8 @@ public class PlanRollbackService {
     }
 
     /**
-     * Rollback never mutates history. It creates a new latest version unless the
-     * selected version is already semantically identical to the latest one.
+     * 回滚不会修改历史。只要目标版本与最新版本语义不同，
+     * 就会复制目标内容并生成新的最新版本。
      */
     @Transactional
     public RollbackResult rollback(String targetPlanId) {

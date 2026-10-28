@@ -45,7 +45,7 @@ public class AmapRouteService {
                 }
             }
         } catch (RuntimeException ignored) {
-            // Fall back without making the whole itinerary generation fail.
+            // 单条路线失败时使用估算值，避免整份行程生成失败。
         }
         return new RouteEstimate(straightLineMinutes, "ESTIMATE", "路线估算");
     }

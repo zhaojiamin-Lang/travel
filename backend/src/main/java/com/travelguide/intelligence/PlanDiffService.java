@@ -23,17 +23,17 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Computes business-level differences between two immutable itinerary versions.
+ * 计算两个不可变行程版本之间的业务语义差异。
  *
- * <p>The service compares structured items rather than raw JSON text. It never
- * calls an LLM and never mutates either version.</p>
+ * <p>这里比较结构化的行程项，而不是直接比较 JSON 文本；
+ * 计算过程不调用大模型，也不会修改任何历史版本。</p>
  */
 @Service
 public class PlanDiffService {
 
     /**
-     * Produces a semantic diff from {@code from} to {@code to}. Both plans must
-     * belong to the same trip request.
+     * 生成从 {@code from} 到 {@code to} 的语义差异，
+     * 两个行程必须属于同一次旅行需求。
      */
     public PlanDiffView diff(PlanView from, PlanView to) {
         if (!Objects.equals(from.requestId(), to.requestId())) {

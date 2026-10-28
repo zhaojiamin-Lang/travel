@@ -21,10 +21,10 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Persists the user's current execution progress for an itinerary.
+ * 持久化用户当前的行程执行进度。
  *
- * <p>The row is keyed by plan ID and protected by an optimistic revision to
- * prevent concurrent updates from overwriting each other.</p>
+ * <p>每个行程对应一条进度记录，并通过乐观锁版本号
+ * 防止并发更新互相覆盖。</p>
  */
 @Service
 public class ExecutionProgressService {
@@ -44,7 +44,7 @@ public class ExecutionProgressService {
     }
 
     /**
-     * Creates an initial NOT_STARTED row when progress has not been reported.
+     * 当用户尚未上报进度时，创建初始的“未开始”记录。
      */
     @Transactional
     public ProgressView getOrCreate(String planId) {
@@ -64,7 +64,7 @@ public class ExecutionProgressService {
     }
 
     /**
-     * Validates item IDs against the plan, then persists the latest progress.
+     * 先校验行程项是否属于当前计划，再持久化最新执行进度。
      */
     @Transactional
     public ProgressView save(String planId, SaveProgressRequest request) {
@@ -115,7 +115,7 @@ public class ExecutionProgressService {
     }
 
     /**
-     * Automatically records delay data published by the event-driven replanner.
+     * 自动记录事件驱动重规划发布的迟到信息。
      */
     @Transactional
     public void recordDelayEvent(com.travelguide.replan.ReplanModels.DelayReportedEvent event) {

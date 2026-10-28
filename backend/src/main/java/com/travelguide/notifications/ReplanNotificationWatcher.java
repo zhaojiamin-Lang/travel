@@ -13,10 +13,10 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * Detects durable weather and proposal changes and forwards them to SSE.
+ * 检测已持久化的天气与提案变化，并转发到 SSE 通知中心。
  *
- * <p>Watching persisted state avoids coupling notification delivery to the
- * existing weather and replan business services.</p>
+ * <p>通过监听数据库状态实现通知，避免把消息推送逻辑耦合进
+ * 原有天气和重规划业务服务。</p>
  */
 @Service
 public class ReplanNotificationWatcher {
@@ -39,8 +39,8 @@ public class ReplanNotificationWatcher {
     }
 
     /**
-     * Polls durable state rather than modifying the existing weather or replan
-     * services. This keeps notification delivery independent from business logic.
+     * 轮询已持久化状态，而不是修改现有天气或重规划服务，
+     * 从而让消息推送与核心业务逻辑保持解耦。
      */
     @Scheduled(
             fixedDelayString = "${travel.notifications.poll-interval-ms:1000}",

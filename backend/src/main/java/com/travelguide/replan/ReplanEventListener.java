@@ -20,10 +20,10 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Consumes closure and delay events and stores a reviewable replan proposal.
+ * 消费闭馆和迟到事件，并生成可审核的重规划提案。
  *
- * <p>Event handling never overwrites the current plan. Acceptance is a
- * separate operation that creates a new immutable version.</p>
+ * <p>事件处理不会覆盖当前行程；只有用户接受提案后，
+ * 才会创建新的不可变行程版本。</p>
  */
 @Component
 public class ReplanEventListener {
@@ -52,7 +52,7 @@ public class ReplanEventListener {
     }
 
     /**
-     * Handles a closure by removing the affected stop and recalculating routes.
+     * 移除闭馆景点，并重新计算受影响日期及后续路线。
      */
     @EventListener
     @Transactional
@@ -70,7 +70,7 @@ public class ReplanEventListener {
     }
 
     /**
-     * Handles a delay while preserving the current stop and shifting the rest.
+     * 保留当前站点，仅顺延并重算后续未完成行程。
      */
     @EventListener
     @Transactional

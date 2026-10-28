@@ -35,10 +35,10 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Optional CP-SAT solver for complex single-day rescheduling.
+ * 用于复杂单日重排的可选 CP-SAT 求解器。
  *
- * <p>The existing rule planner remains the default. CP-SAT is invoked only by
- * the optimizer API and returns a preview without changing the stored plan.</p>
+ * <p>现有规则排程仍是默认链路；只有显式调用优化接口时才使用 CP-SAT，
+ * 且这里只返回预览，不会修改已保存的行程。</p>
  */
 @Service
 public class CpSatDayOptimizer {
@@ -64,8 +64,8 @@ public class CpSatDayOptimizer {
     }
 
     /**
-     * Produces a CP-SAT preview for one day. It deliberately does not replace
-     * the existing itinerary; callers can review the result before applying it.
+     * 生成单日 CP-SAT 优化预览，不直接替换当前行程；
+     * 调用方应先审核结果，再决定是否应用。
      */
     public DayOptimizationResult optimize(String planId, int dayNumber, OptimizeDayRequest request) {
         PlanView plan = planningService.getPlan(planId);
@@ -124,7 +124,7 @@ public class CpSatDayOptimizer {
         CpModel model = new CpModel();
         int earliestStart = DAY_START + Math.max(0, valueOrZero(request.delayMinutes()));
 
-        // start[position] is the absolute minute from midnight.
+        // start[position] 保存从当天零点起的绝对分钟数。
         IntVar[] starts = new IntVar[count];
         IntVar[] ends = new IntVar[count];
         IntVar[] visitDurations = new IntVar[count];
@@ -134,7 +134,7 @@ public class CpSatDayOptimizer {
             visitDurations[position] = model.newIntVar(15, 360, "duration_" + position);
         }
 
-        // x[position][item] assigns each POI to exactly one sequence position.
+        // x[position][item] 表示某个景点被分配到唯一顺序位置。
         BoolVar[][] assigned = new BoolVar[count][count];
         for (int position = 0; position < count; position++) {
             for (int item = 0; item < count; item++) {
@@ -153,7 +153,7 @@ public class CpSatDayOptimizer {
             }
         }
 
-        // y[position][previous][current] marks consecutive POIs and carries travel time.
+        // y[position][previous][current] 表示相邻景点关系，并承载路线时间。
         BoolVar[][][] transition = new BoolVar[count][count][count];
         LinearArgument[] objectiveTerms = new LinearArgument[1 + count * count];
         long[] objectiveWeights = new long[objectiveTerms.length];
@@ -224,7 +224,7 @@ public class CpSatDayOptimizer {
             }
         }
 
-        // Prefer minimal reordering; total finish time is the primary objective.
+        // 优先最小化结束时间，同时对顺序变化增加少量惩罚。
         objectiveTerms[objectiveIndex] = ends[count - 1];
         objectiveWeights[objectiveIndex++] = 1;
         for (int position = 0; position < count; position++) {

@@ -540,7 +540,7 @@ public class PlanningService {
                 try {
                     entity.setStartDate(LocalDate.parse(json.path("startDate").asText()));
                 } catch (RuntimeException ignored) {
-                    // Keep the rule-based extraction when the model returns an invalid date.
+                    // 模型返回非法日期时，保留规则抽取结果。
                 }
             }
             if (json.hasNonNull("people") && json.path("people").asInt() >= 1 && json.path("people").asInt() <= 6) {
@@ -567,7 +567,7 @@ public class PlanningService {
                 }
             }
         } catch (RuntimeException | JsonProcessingException ignored) {
-            // The deterministic extractor remains the safe fallback.
+            // 模型调用失败时，使用确定性抽取器兜底。
         }
     }
 

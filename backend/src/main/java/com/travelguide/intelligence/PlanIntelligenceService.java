@@ -22,11 +22,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Defines the boundary between Qwen and deterministic planning logic.
+ * 定义千问模型与确定性排程逻辑之间的职责边界。
  *
- * <p>Qwen interprets intent and phrases explanations. Java validates IDs,
- * recalculates times, computes diffs and remains the only component allowed to
- * create versions.</p>
+ * <p>千问只负责理解用户意图和组织解释文案；项目 ID 校验、时间重算、
+ * 语义 Diff 和新版本创建全部由 Java 完成。</p>
  */
 @Service
 public class PlanIntelligenceService {
@@ -59,7 +58,7 @@ public class PlanIntelligenceService {
     }
 
     /**
-     * Extracts intent only. It never changes a plan, budget or time.
+     * 只提取用户意图，不直接修改行程、预算或时间。
      */
     public IntentView interpret(String planId, String message) {
         PlanView plan = planningService.getPlan(planId);
@@ -94,15 +93,15 @@ public class PlanIntelligenceService {
                         "由千问完成意图理解，时间与路线由 Java 规则校验"
                 );
             } catch (RuntimeException | java.io.IOException ignored) {
-                // Fall through to the deterministic parser.
+                // 千问调用失败时，继续使用确定性解析器。
             }
         }
         return fallbackIntent(plan, message);
     }
 
     /**
-     * Qwen may only phrase a diff that Java has already calculated. Any number
-     * not present in the diff causes a deterministic fallback.
+     * 千问只能解释 Java 已经计算好的差异；
+     * 如果回答出现差异中不存在的数字，就使用确定性说明兜底。
      */
     public ExplanationView explainDiff(String targetPlanId, String againstPlanId) {
         PlanView target = planningService.getPlan(targetPlanId);
