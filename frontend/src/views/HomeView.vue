@@ -60,6 +60,8 @@ const preferences = reactive<{
 const bootstrap = computed(() => tripStore.bootstrap)
 const featured = computed(() => bootstrap.value?.featuredPois.slice(0, 3) ?? [])
 const currentYear = new Date().getFullYear()
+const hasUserIntent = computed(() => prompt.value.trim().length > 0)
+const showDiscovery = computed(() => hasUserIntent.value || Boolean(recentTrip.value?.latestPlanId))
 
 onMounted(async () => {
   try {
@@ -155,6 +157,9 @@ function cardStyle(poi: Poi) {
 }
 
 function heroCoordinate() {
+  if (!hasUserIntent.value) {
+    return 'WAITING FOR YOUR STORY'
+  }
   const poi = featured.value[0]
   return poi ? `${poi.latitude.toFixed(2)}° N · ${poi.longitude.toFixed(2)}° E` : 'LOCATION FROM DATABASE'
 }
@@ -192,7 +197,7 @@ function scrollToPlanner() {
               <strong>{{ bootstrap?.curatedPoiCount ?? '—' }}</strong> 个{{ bootstrap?.city || '城市' }}精选目的地
               <br /><span>为轻松的旅行方式而整理</span>
             </p>
-            <div v-if="weather?.forecasts[0]" class="weather-pill">
+            <div v-if="hasUserIntent && weather?.forecasts[0]" class="weather-pill">
               <CloudSun :size="15" />
               <span>
                 {{ weather.city }} {{ weather.forecasts[0].dayWeather }}
@@ -205,7 +210,7 @@ function scrollToPlanner() {
         <div class="hero__visual" :aria-label="`${bootstrap?.city || '城市'}漫游路线插画`">
           <div class="postcard postcard--back">
             <span>{{ heroCoordinate() }}</span>
-            <span>{{ bootstrap?.city || 'DESTINATION' }}</span>
+            <span>{{ hasUserIntent ? bootstrap?.city || 'DESTINATION' : 'YOUR CITY' }}</span>
           </div>
           <div class="postcard">
             <div class="postcard__top">
@@ -230,7 +235,7 @@ function scrollToPlanner() {
               </svg>
             </div>
             <div class="postcard__caption">
-              <span>从{{ featured[0]?.area || bootstrap?.city || '目的地' }}出发</span>
+              <span>{{ hasUserIntent ? `从${featured[0]?.area || bootstrap?.city || '目的地'}出发` : 'YOUR TRAVEL NOTES' }}</span>
               <span>EST. {{ currentYear }}</span>
             </div>
           </div>
@@ -238,7 +243,10 @@ function scrollToPlanner() {
             <span class="route-note__dot"></span>
             <div>
               <small>NEXT STOP</small>
-              <strong>{{ featured[0]?.name || '正在读取旅行数据' }} · {{ featured[0]?.area || bootstrap?.city || '—' }}</strong>
+              <strong v-if="hasUserIntent">
+                {{ featured[0]?.name || '正在读取旅行数据' }} · {{ featured[0]?.area || bootstrap?.city || '—' }}
+              </strong>
+              <strong v-else>写下目的地，开始规划</strong>
             </div>
             <ArrowRight :size="18" :stroke-width="1.6" />
           </div>
@@ -296,7 +304,7 @@ function scrollToPlanner() {
         </div>
       </section>
 
-      <section id="inspiration" class="inspiration page-shell">
+      <section v-if="showDiscovery" id="inspiration" class="inspiration page-shell">
         <div class="section-heading">
           <div>
             <p class="eyebrow">Curated for now</p>
@@ -400,7 +408,7 @@ function scrollToPlanner() {
     <footer class="footer page-shell">
       <span class="serif">漫游 HERE</span>
       <p>慢一点，才能看见更多。</p>
-      <span>{{ bootstrap?.city || '目的地' }} · {{ currentYear }}</span>
+      <span>{{ hasUserIntent ? bootstrap?.city || '目的地' : 'YOUR JOURNEY' }} · {{ currentYear }}</span>
     </footer>
 
     <Transition name="sheet">
