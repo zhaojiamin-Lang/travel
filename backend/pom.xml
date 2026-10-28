@@ -20,6 +20,7 @@
     <properties>
         <java.version>17</java.version>
         <spring-ai.version>1.0.0-M5</spring-ai.version>
+        <ortools.version>9.11.4210</ortools.version>
     </properties>
 
     <dependencies>
@@ -61,6 +62,11 @@
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.google.ortools</groupId>
+            <artifactId>ortools-java</artifactId>
+            <version>${ortools.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
