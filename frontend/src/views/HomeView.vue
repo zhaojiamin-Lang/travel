@@ -37,6 +37,7 @@ const bootstrapLoading = ref(true)
 const bootstrapError = ref('')
 
 const preferences = reactive<{
+  city: string
   startDate: string
   days: number | null
   people: number | null
@@ -44,6 +45,7 @@ const preferences = reactive<{
   pace: string
   noSpicy: boolean
 }>({
+  city: '',
   startDate: '',
   days: null,
   people: null,
@@ -78,6 +80,7 @@ async function beginPlanning() {
   try {
     const result = await api.createDraft(prompt.value)
     draft.value = result
+    preferences.city = result.city || ''
     preferences.days = result.days ?? null
     preferences.people = result.people ?? null
     preferences.budget = result.budget ?? null
@@ -99,14 +102,15 @@ async function beginPlanning() {
 
 async function fillAndGenerate() {
   if (!draft.value || loading.value) return
-  if (!preferences.startDate || !preferences.days || !preferences.people || !preferences.budget) {
-    error.value = '请补充出发日期、天数、人数和预算。'
+  if (!preferences.city || !preferences.startDate || !preferences.days || !preferences.people || !preferences.budget) {
+    error.value = '请补充目的地、出发日期、天数、人数和预算。'
     return
   }
   error.value = ''
   loading.value = true
   try {
     await api.updateRequirements(draft.value.requestId, {
+      city: preferences.city,
       startDate: preferences.startDate,
       days: preferences.days!,
       people: preferences.people!,
@@ -132,6 +136,12 @@ async function generatePlan(requestId: string) {
 function scrollToPlanner() {
   document.querySelector('#planner')?.scrollIntoView({ behavior: 'smooth' })
   window.setTimeout(() => promptInput.value?.focus(), 350)
+}
+
+function useAvailableCity() {
+  if (bootstrap.value?.city) {
+    preferences.city = bootstrap.value.city
+  }
 }
 </script>
 
@@ -334,6 +344,16 @@ function scrollToPlanner() {
                 <span v-if="draft.excludedPoiIds.length" class="excluded">
                   已排除 {{ draft.excludedPoiIds.length }} 个地点
                 </span>
+              </div>
+              <div v-if="draft.missingFields.includes('city')" class="city-guidance">
+                <div>
+                  <strong>当前数据暂未覆盖这个目的地</strong>
+                  <p>目前可规划的城市是 {{ bootstrap?.city || '正在加载' }}。</p>
+                </div>
+                <button type="button" @click="useAvailableCity">
+                  <Check v-if="preferences.city" :size="13" />
+                  {{ preferences.city ? `已选择 ${preferences.city}` : `改用 ${bootstrap?.city || '当前城市'}` }}
+                </button>
               </div>
             </div>
             <span class="slot-sheet__number">01—04</span>
@@ -1385,6 +1405,49 @@ main,
 .slot-recognized span.excluded {
   background: rgba(190, 101, 69, 0.09);
   color: #925b46;
+}
+
+.city-guidance {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 13px;
+  padding: 12px 14px;
+  border: 1px solid rgba(190, 102, 68, 0.16);
+  border-radius: 10px;
+  background: rgba(205, 120, 82, 0.07);
+}
+
+.city-guidance div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.city-guidance strong {
+  color: #7f4c38;
+  font-size: 10px;
+}
+
+.city-guidance p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.city-guidance button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 11px;
+  border: 1px solid rgba(120, 92, 66, 0.18);
+  border-radius: 999px;
+  background: #fffdf7;
+  color: var(--forest);
+  font-size: 8px;
+  cursor: pointer;
 }
 
 .slot-sheet__number {

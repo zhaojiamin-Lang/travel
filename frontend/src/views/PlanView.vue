@@ -176,7 +176,7 @@ function planCoordinates() {
 }
 
 function itemInitial(item: PlanItem) {
-  return item.name.replace(/上海|人民广场馆|步行街|古镇|滨江/, '').slice(0, 1) || '行'
+  return item.name.replace(/人民广场馆|步行街|古镇|滨江/g, '').slice(0, 1) || '行'
 }
 
 function stopNumber(index: number) {

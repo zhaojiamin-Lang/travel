@@ -140,6 +140,7 @@ export const api = {
   updateRequirements(
     requestId: string,
     payload: {
+      city?: string
       startDate: string
       days: number
       people: number

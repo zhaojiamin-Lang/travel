@@ -8,6 +8,7 @@ import com.travelguide.web.ApiDtos.NaturalLanguageUpdateRequest;
 import com.travelguide.web.ApiDtos.PlanItem;
 import com.travelguide.web.ApiDtos.PlanView;
 import com.travelguide.web.ApiDtos.RegisterRequest;
+import com.travelguide.web.ApiDtos.RequirementsUpdate;
 import com.travelguide.web.ApiDtos.SwapRequest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -80,7 +81,7 @@ class PlanningFlowTest {
                 "去上海玩一天，想吃点清淡的。"
         ));
 
-        planningService.updateRequirements(draft.requestId(), new com.travelguide.web.ApiDtos.RequirementsUpdate(
+        planningService.updateRequirements(draft.requestId(), new RequirementsUpdate(
                 LocalDate.of(2030, 6, 1),
                 1,
                 1,
@@ -189,5 +190,31 @@ class PlanningFlowTest {
         assertThat(draft.excludedPoiIds()).contains("shanghai-museum");
         assertThat(planningService.generatePlan(draft.requestId()).mapPoints())
                 .noneMatch(point -> point.poiId().equals("shanghai-museum"));
+    }
+
+    @Test
+    void unsupportedDestinationKeepsSlotFormOpenUntilUserChoosesAvailableCity() {
+        DraftResponse draft = planningService.createDraft(new DraftRequest(
+                "unsupported-city",
+                "我想去山西玩"
+        ));
+        assertThat(draft.city()).isNull();
+        assertThat(draft.missingFields()).contains("city", "startDate", "days", "budget");
+
+        DraftResponse completed = planningService.updateRequirements(
+                draft.requestId(),
+                new RequirementsUpdate(
+                        "上海",
+                        LocalDate.of(2031, 5, 1),
+                        1,
+                        1,
+                        BigDecimal.valueOf(1200),
+                        "RELAXED",
+                        true,
+                        null
+                )
+        );
+        assertThat(completed.city()).isEqualTo("上海");
+        assertThat(planningService.generatePlan(completed.requestId()).passed()).isTrue();
     }
 }

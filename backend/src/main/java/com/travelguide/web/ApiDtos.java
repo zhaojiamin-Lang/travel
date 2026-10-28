@@ -33,6 +33,7 @@ public final class ApiDtos {
     }
 
     public record RequirementsUpdate(
+            String city,
             LocalDate startDate,
             @Positive Integer days,
             @Positive Integer people,
@@ -41,6 +42,17 @@ public final class ApiDtos {
             Boolean noSpicy,
             List<String> mustSee
     ) {
+        public RequirementsUpdate(
+                LocalDate startDate,
+                Integer days,
+                Integer people,
+                BigDecimal budget,
+                String pace,
+                Boolean noSpicy,
+                List<String> mustSee
+        ) {
+            this(null, startDate, days, people, budget, pace, noSpicy, mustSee);
+        }
     }
 
     public record PoiView(

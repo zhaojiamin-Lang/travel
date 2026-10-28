@@ -27,7 +27,7 @@ export interface Poi {
 
 export interface Draft {
   requestId: string
-  city: string
+  city?: string
   days?: number
   startDate?: string
   endDate?: string

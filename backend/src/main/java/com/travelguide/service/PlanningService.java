@@ -22,6 +22,7 @@ import com.travelguide.web.ApiDtos.PoiView;
 import com.travelguide.web.ApiDtos.RequirementsUpdate;
 import com.travelguide.web.ApiDtos.SwapRequest;
 import com.travelguide.web.ApiDtos.TransitView;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -64,6 +65,7 @@ public class PlanningService {
     private final ObjectMapper objectMapper;
     private final AiGateway aiGateway;
     private final AmapRouteService routeService;
+    private final String defaultCity;
 
     public PlanningService(
             PoiRepository poiRepository,
@@ -72,7 +74,8 @@ public class PlanningService {
             PoiMapper poiMapper,
             ObjectMapper objectMapper,
             AiGateway aiGateway,
-            AmapRouteService routeService
+            AmapRouteService routeService,
+            @Value("${travel.default-city:上海}") String defaultCity
     ) {
         this.poiRepository = poiRepository;
         this.requestRepository = requestRepository;
@@ -81,6 +84,7 @@ public class PlanningService {
         this.objectMapper = objectMapper;
         this.aiGateway = aiGateway;
         this.routeService = routeService;
+        this.defaultCity = defaultCity;
     }
 
     @Transactional
@@ -187,6 +191,12 @@ public class PlanningService {
     @Transactional
     public DraftResponse updateRequirements(String requestId, RequirementsUpdate update) {
         TripRequestEntity entity = requireRequest(requestId);
+        if (update.city() != null && !update.city().isBlank()) {
+            if (!defaultCity.equals(update.city().trim())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "当前数据暂未覆盖该城市");
+            }
+            entity.setCity(defaultCity);
+        }
         if (update.startDate() != null) {
             entity.setStartDate(update.startDate());
         }
@@ -303,8 +313,10 @@ public class PlanningService {
         }
 
         boolean passed = issues.stream().noneMatch(issue -> "ERROR".equals(issue.severity()));
-        String title = "上海 · " + ("RELAXED".equals(request.getPace()) ? "松弛" : "城市") + toChineseDays(request.getDays()) + "漫游";
-        String subtitle = "从江岸天际线走到梧桐街区，把时间留给真正值得停留的地方。";
+        String title = request.getCity() + " · "
+                + ("RELAXED".equals(request.getPace()) ? "松弛" : "城市")
+                + toChineseDays(request.getDays()) + "漫游";
+        String subtitle = "根据你的兴趣、预算与节奏生成路线，把时间留给真正值得停留的地方。";
         int nextVersion = planRepository.findByRequestIdOrderByVersionDesc(requestId).stream()
                 .findFirst()
                 .map(existing -> existing.getVersion() + 1)
@@ -315,7 +327,7 @@ public class PlanningService {
                 nextVersion,
                 title,
                 subtitle,
-                "上海",
+                request.getCity(),
                 request.getStartDate(),
                 request.getDays(),
                 request.getPeople(),
@@ -520,6 +532,10 @@ public class PlanningService {
             String knownPois = allPois.stream().map(PoiEntity::getName).collect(java.util.stream.Collectors.joining("、"));
             String response = aiGateway.complete(instructions, "景点列表：" + knownPois + "\n用户需求：" + prompt);
             com.fasterxml.jackson.databind.JsonNode json = objectMapper.readTree(stripCodeFence(response));
+            if (json.hasNonNull("city")) {
+                String city = json.path("city").asText().trim();
+                entity.setCity(defaultCity.equals(city) || city.contains(defaultCity) ? defaultCity : null);
+            }
             if (json.hasNonNull("days") && json.path("days").asInt() >= 1 && json.path("days").asInt() <= 3) {
                 entity.setDays(json.path("days").asInt());
             }
@@ -669,7 +685,7 @@ public class PlanningService {
                         dayNumber,
                         sequence++,
                         request,
-                        "本地本帮菜午餐",
+                        "当地风味午餐",
                         "避开重辣，优先选择可现场排队的餐馆",
                         lunchStart
                 );
@@ -718,13 +734,13 @@ public class PlanningService {
 
         if (!lunchAdded) {
             LocalTime lunchStart = cursor.isBefore(LocalTime.of(12, 10)) ? LocalTime.of(12, 10) : cursor.plusMinutes(15);
-            items.add(mealItem(dayNumber, sequence, request, "本帮风味午餐", "避开重辣，留出 1 小时用餐", lunchStart));
+            items.add(mealItem(dayNumber, sequence, request, "当地风味午餐", "按饮食偏好就近选择，留出 1 小时用餐", lunchStart));
         }
 
         String theme = switch (dayNumber % 3) {
-            case 1 -> "江岸与老城 · 第一眼上海";
-            case 2 -> "人文与街区 · 城市慢行";
-            default -> "建筑与生活 · 向外延伸";
+            case 1 -> "初见目的地 · 从代表性地点开始";
+            case 2 -> "在地文化与日常街区";
+            default -> "兴趣延伸 · 留一点自由时间";
         };
         return new DayPlan(
                 dayNumber,
@@ -810,6 +826,9 @@ public class PlanningService {
 
     private List<String> missingFields(TripRequestEntity request) {
         List<String> missing = new ArrayList<>();
+        if (request.getCity() == null || request.getCity().isBlank()) {
+            missing.add("city");
+        }
         if (request.getStartDate() == null) {
             missing.add("startDate");
         }
@@ -824,7 +843,13 @@ public class PlanningService {
 
     private DraftResponse toDraft(TripRequestEntity entity, List<PoiEntity> allPois) {
         List<PoiView> suggestions = allPois.stream()
-                .filter(poi -> Set.of("bund", "shanghai-museum", "wukang-road", "yuyuan", "natural-history").contains(poi.getId()))
+                .filter(poi -> fitsDailyLimit(List.of(), poi, entity))
+                .sorted(Comparator.comparingInt((PoiEntity poi) -> -preferenceScore(
+                        poi,
+                        new HashSet<>(csvValues(entity.getInterestTags())),
+                        entity
+                )).thenComparing(PoiEntity::getName))
+                .limit(5)
                 .map(poiMapper::toView)
                 .toList();
         return new DraftResponse(
@@ -852,7 +877,8 @@ public class PlanningService {
         String interests = csvValues(entity.getInterestTags()).isEmpty()
                 ? ""
                 : " · 关注 " + String.join("、", csvValues(entity.getInterestTags()));
-        return "上海 " + (entity.getDays() == null ? "待定" : entity.getDays()) + " 天 · " + pace + interests + " · " + names;
+        String city = entity.getCity() == null || entity.getCity().isBlank() ? "目的地待定" : entity.getCity();
+        return city + " " + (entity.getDays() == null ? "待定" : entity.getDays()) + " 天 · " + pace + interests + " · " + names;
     }
 
     /**
@@ -1138,7 +1164,7 @@ public class PlanningService {
     }
 
     private String resolveCity(String prompt) {
-        return prompt.contains("上海") ? "上海" : "上海";
+        return prompt.contains(defaultCity) ? defaultCity : null;
     }
 
     private Integer resolveDays(String prompt) {
