@@ -16,11 +16,13 @@ const props = withDefaults(
     activePoiId?: string
     mapKey?: string
     mode?: 'plan' | 'guide'
+    city?: string
   }>(),
   {
     activePoiId: '',
     mapKey: '',
     mode: 'plan',
+    city: '目的地',
   },
 )
 
@@ -52,6 +54,11 @@ const routeLine = computed(() => {
   return normalizedPoints.value
     .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.left} ${point.top}`)
     .join(' ')
+})
+
+const mapCoordinates = computed(() => {
+  const point = props.points[0]
+  return point ? `${point.latitude.toFixed(2)}° N / ${point.longitude.toFixed(2)}° E` : 'LOCATION PENDING'
 })
 
 onMounted(() => {
@@ -151,8 +158,8 @@ function renderAmap() {
         </g>
       </svg>
       <div class="route-map__river"></div>
-      <span class="route-map__city-name">SHANGHAI</span>
-      <span class="route-map__coords">31.2304° N / 121.4737° E</span>
+      <span class="route-map__city-name">{{ city }}</span>
+      <span class="route-map__coords">{{ mapCoordinates }}</span>
       <svg class="route-map__route" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
         <path v-if="routeLine" :d="routeLine" />
       </svg>

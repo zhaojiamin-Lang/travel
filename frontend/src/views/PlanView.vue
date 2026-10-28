@@ -170,6 +170,11 @@ function formatMoney(value: number) {
   return new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 0 }).format(value)
 }
 
+function planCoordinates() {
+  const point = plan.value?.mapPoints[0]
+  return point ? `${point.latitude.toFixed(2)}° N · ${point.longitude.toFixed(2)}° E` : '坐标待确认'
+}
+
 function itemInitial(item: PlanItem) {
   return item.name.replace(/上海|人民广场馆|步行街|古镇|滨江/, '').slice(0, 1) || '行'
 }
@@ -459,7 +464,7 @@ function goHome() {
           </button>
           <div class="plan-hero__main">
             <div class="plan-hero__copy">
-              <p class="hero-kicker">YOUR SHANGHAI STORY</p>
+              <p class="hero-kicker">YOUR {{ plan.city }} STORY</p>
               <h1>{{ plan.title }}</h1>
               <p class="plan-hero__summary">{{ plan.subtitle }}</p>
               <div class="plan-meta">
@@ -478,8 +483,8 @@ function goHome() {
                 <path class="skyline-near" d="M119 128V91H151V128M163 128V61H189V128" />
                 <path class="hero-tower" d="M186 128V30H193V13H204V30H211V128" />
               </svg>
-              <p>31°14′N · 121°29′E</p>
-              <span>SHANGHAI FIELD NOTES</span>
+              <p>{{ planCoordinates() }}</p>
+              <span>{{ plan.city }} FIELD NOTES</span>
             </div>
           </div>
 
@@ -642,6 +647,7 @@ function goHome() {
                 <RouteMap
                   :points="plan.mapPoints"
                   :map-key="tripStore.bootstrap?.mapKey"
+                  :city="plan.city"
                   :active-poi-id="activeDay?.items.find((item) => item.type === 'POI')?.poiId"
                 />
               </div>

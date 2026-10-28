@@ -30,7 +30,7 @@ import type { Draft, HistoryItem, Poi, WeatherSnapshot } from '../types'
 
 const router = useRouter()
 const tripStore = useTripStore()
-const prompt = ref('下周末去上海玩两天，预算 3000 元，想去外滩和上海博物馆，不吃辣，不想走太累。')
+const prompt = ref('')
 const promptInput = ref<HTMLTextAreaElement | null>(null)
 const loading = ref(false)
 const slotOpen = ref(false)
@@ -40,26 +40,30 @@ const bootstrapLoading = ref(true)
 const bootstrapError = ref('')
 const weather = ref<WeatherSnapshot | null>(null)
 const recentTrip = ref<HistoryItem | null>(null)
-const promptTouched = ref(false)
 
-const preferences = reactive({
-  startDate: nextSaturday(),
-  days: 2,
-  people: 2,
-  budget: 3000,
+const preferences = reactive<{
+  startDate: string
+  days: number | null
+  people: number | null
+  budget: number | null
+  pace: string
+  noSpicy: boolean
+}>({
+  startDate: '',
+  days: null,
+  people: null,
+  budget: null,
   pace: 'RELAXED',
   noSpicy: true,
 })
 
 const bootstrap = computed(() => tripStore.bootstrap)
 const featured = computed(() => bootstrap.value?.featuredPois.slice(0, 3) ?? [])
+const currentYear = new Date().getFullYear()
 
 onMounted(async () => {
   try {
     tripStore.bootstrap = await api.bootstrap()
-    if (!promptTouched.value && tripStore.bootstrap.suggestedPrompts[0]) {
-      prompt.value = tripStore.bootstrap.suggestedPrompts[0]
-    }
   } catch (reason) {
     bootstrapError.value = reason instanceof Error ? reason.message : '旅行数据加载失败'
   } finally {
@@ -81,17 +85,8 @@ onMounted(async () => {
   }
 })
 
-function nextSaturday() {
-  const date = new Date()
-  const day = date.getDay()
-  const offset = (6 - day + 7) % 7 || 7
-  date.setDate(date.getDate() + offset)
-  return date.toISOString().slice(0, 10)
-}
-
 function choosePrompt(value: string) {
   prompt.value = value
-  promptTouched.value = true
   promptInput.value?.focus()
 }
 
@@ -102,12 +97,12 @@ async function beginPlanning() {
   try {
     const result = await api.createDraft(prompt.value)
     draft.value = result
-    preferences.days = result.days || 2
-    preferences.people = result.people || 2
-    preferences.budget = result.budget || 3000
+    preferences.days = result.days ?? null
+    preferences.people = result.people ?? null
+    preferences.budget = result.budget ?? null
     preferences.pace = result.pace || 'RELAXED'
     preferences.noSpicy = result.noSpicy ?? true
-    preferences.startDate = result.startDate || preferences.startDate
+    preferences.startDate = result.startDate || ''
 
     if (result.missingFields.length > 0) {
       slotOpen.value = true
@@ -123,14 +118,18 @@ async function beginPlanning() {
 
 async function fillAndGenerate() {
   if (!draft.value || loading.value) return
+  if (!preferences.startDate || !preferences.days || !preferences.people || !preferences.budget) {
+    error.value = '请补充出发日期、天数、人数和预算。'
+    return
+  }
   error.value = ''
   loading.value = true
   try {
     await api.updateRequirements(draft.value.requestId, {
       startDate: preferences.startDate,
-      days: preferences.days,
-      people: preferences.people,
-      budget: preferences.budget,
+      days: preferences.days!,
+      people: preferences.people!,
+      budget: preferences.budget!,
       pace: preferences.pace,
       noSpicy: preferences.noSpicy,
     })
@@ -153,6 +152,11 @@ function cardStyle(poi: Poi) {
   return {
     '--accent': poi.accent,
   }
+}
+
+function heroCoordinate() {
+  const poi = featured.value[0]
+  return poi ? `${poi.latitude.toFixed(2)}° N · ${poi.longitude.toFixed(2)}° E` : 'LOCATION FROM DATABASE'
 }
 
 function scrollToPlanner() {
@@ -198,10 +202,10 @@ function scrollToPlanner() {
           </div>
         </div>
 
-        <div class="hero__visual" aria-label="上海城市漫游路线插画">
+        <div class="hero__visual" :aria-label="`${bootstrap?.city || '城市'}漫游路线插画`">
           <div class="postcard postcard--back">
-            <span>31°14′ N</span>
-            <span>SHANGHAI</span>
+            <span>{{ heroCoordinate() }}</span>
+            <span>{{ bootstrap?.city || 'DESTINATION' }}</span>
           </div>
           <div class="postcard">
             <div class="postcard__top">
@@ -210,7 +214,7 @@ function scrollToPlanner() {
             </div>
             <div class="postcard__sky">
               <span class="sun"></span>
-              <svg viewBox="0 0 520 240" role="img" aria-label="抽象上海天际线">
+              <svg viewBox="0 0 520 240" role="img" :aria-label="`抽象${bootstrap?.city || '城市'}天际线`">
                 <path class="river" d="M0 185C80 159 119 210 203 178C290 144 348 176 520 130" />
                 <g class="far-buildings">
                   <path d="M30 160V109H53V160M70 160V87H103V160M118 160V122H144V160" />
@@ -226,8 +230,8 @@ function scrollToPlanner() {
               </svg>
             </div>
             <div class="postcard__caption">
-              <span>从黄浦江出发</span>
-              <span>EST. 2026</span>
+              <span>从{{ featured[0]?.area || bootstrap?.city || '目的地' }}出发</span>
+              <span>EST. {{ currentYear }}</span>
             </div>
           </div>
           <div class="route-note">
@@ -260,8 +264,7 @@ function scrollToPlanner() {
               v-model="prompt"
               rows="3"
               aria-label="描述你的旅行计划"
-              placeholder="例如：下周末去上海，想慢慢逛，不要太多人……"
-              @input="promptTouched = true"
+              placeholder="说出目的地、天数、预算和喜欢的地方……"
               @keydown.meta.enter="beginPlanning"
               @keydown.ctrl.enter="beginPlanning"
             ></textarea>
@@ -316,7 +319,7 @@ function scrollToPlanner() {
             class="place-card"
             :class="{ 'place-card--wide': index === 0 }"
             :style="cardStyle(poi)"
-            @click="choosePrompt(`我想去上海${poi.name}，帮我安排一天的轻松行程，预算 1000 元。`)"
+            @click="choosePrompt(`我想去${bootstrap?.city || ''}${poi.name}，帮我安排一天的轻松行程。`)"
           >
             <div class="place-card__wash"></div>
             <span class="place-card__index">0{{ index + 1 }}</span>
@@ -397,7 +400,7 @@ function scrollToPlanner() {
     <footer class="footer page-shell">
       <span class="serif">漫游 HERE</span>
       <p>慢一点，才能看见更多。</p>
-      <span>Shanghai · 2026</span>
+      <span>{{ bootstrap?.city || '目的地' }} · {{ currentYear }}</span>
     </footer>
 
     <Transition name="sheet">
@@ -421,11 +424,12 @@ function scrollToPlanner() {
           <div class="slot-grid">
             <label>
               <span>出发日期</span>
-              <input v-model="preferences.startDate" type="date" />
+              <input v-model="preferences.startDate" type="date" required />
             </label>
             <label>
               <span>旅行天数</span>
               <select v-model.number="preferences.days">
+                <option :value="null" disabled>请选择</option>
                 <option :value="1">1 天</option>
                 <option :value="2">2 天</option>
                 <option :value="3">3 天</option>
@@ -434,6 +438,7 @@ function scrollToPlanner() {
             <label>
               <span>同行人数</span>
               <select v-model.number="preferences.people">
+                <option :value="null" disabled>请选择</option>
                 <option :value="1">1 人</option>
                 <option :value="2">2 人</option>
               </select>
@@ -442,7 +447,13 @@ function scrollToPlanner() {
               <span>总预算</span>
               <div class="budget-input">
                 <span>¥</span>
-                <input v-model.number="preferences.budget" type="number" min="100" step="100" />
+                <input
+                  v-model.number="preferences.budget"
+                  type="number"
+                  min="100"
+                  step="100"
+                  placeholder="请输入"
+                />
               </div>
             </label>
           </div>

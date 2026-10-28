@@ -69,6 +69,7 @@ const planPois = computed<PlanItem[]>(() => {
 })
 
 const routePoints = computed(() => plan.value?.mapPoints || [])
+const currentYear = new Date().getFullYear()
 
 onMounted(async () => {
   try {
@@ -340,6 +341,11 @@ function poiAccent(index: number) {
   const colors = ['#C96B45', '#5F7651', '#806B55', '#56748B']
   return colors[index % colors.length]
 }
+
+function currentCoordinate() {
+  const point = routePoints.value.find((item) => item.poiId === current.value?.poiId) || routePoints.value[0]
+  return point ? `${point.latitude.toFixed(2)}° N · ${point.longitude.toFixed(2)}° E` : 'LOCATION PENDING'
+}
 </script>
 
 <template>
@@ -362,6 +368,7 @@ function poiAccent(index: number) {
           :points="routePoints"
           :active-poi-id="current?.poiId"
           :map-key="tripStore.bootstrap?.mapKey"
+          :city="plan?.city || tripStore.bootstrap?.city"
           mode="guide"
         />
 
@@ -422,12 +429,12 @@ function poiAccent(index: number) {
         </div>
 
         <div class="guide-map__caption">
-          <span>31°14′N</span>
+          <span>{{ currentCoordinate() }}</span>
           <div>
             <Waves :size="14" />
             <p>Page open · location active only while visible</p>
           </div>
-          <span>{{ plan?.city }} / 2026</span>
+          <span>{{ plan?.city || '目的地' }} / {{ currentYear }}</span>
         </div>
       </section>
 
