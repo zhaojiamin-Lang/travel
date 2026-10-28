@@ -14,7 +14,11 @@ import type {
   HistoryItem,
   LocationResult,
   Plan,
+  PlanDiff,
+  PlanExplanation,
+  PlanIntent,
   Poi,
+  RollbackResult,
   User,
 } from '../types'
 
@@ -140,6 +144,32 @@ export const api = {
 
   restoreVersion(planId: string) {
     return request<Plan>(`/plans/${planId}/restore`, { method: 'POST' })
+  },
+
+  getPlanDiff(planId: string, againstPlanId: string) {
+    return request<PlanDiff>(
+      `/plan-intelligence/plans/${planId}/diff?against=${encodeURIComponent(againstPlanId)}`,
+    )
+  },
+
+  explainPlanDiff(planId: string, againstPlanId: string) {
+    return request<PlanExplanation>(
+      `/plan-intelligence/plans/${planId}/diff/${againstPlanId}/explain`,
+      { method: 'POST' },
+    )
+  },
+
+  rollbackPlan(planId: string) {
+    return request<RollbackResult>(`/plan-intelligence/plans/${planId}/rollback`, {
+      method: 'POST',
+    })
+  },
+
+  interpretPlan(planId: string, message: string) {
+    return request<PlanIntent>(`/plan-intelligence/plans/${planId}/interpret`, {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    })
   },
 
   createGuide(planId: string) {

@@ -174,3 +174,49 @@ export interface HistoryItem {
   createdAt: string
   planCount: number
 }
+
+export interface SemanticChange {
+  type: string
+  dayNumber: number
+  itemId?: string
+  before?: string
+  after?: string
+  description: string
+}
+
+export interface PlanDiff {
+  fromPlanId: string
+  toPlanId: string
+  fromVersion: number
+  toVersion: number
+  identical: boolean
+  changes: SemanticChange[]
+  summary: {
+    additions: number
+    removals: number
+    replacements: number
+    timeChanges: number
+    otherChanges: number
+    costDelta: number
+  }
+}
+
+export interface RollbackResult {
+  createdNewVersion: boolean
+  currentPlan: Plan
+  appliedChanges: PlanDiff
+}
+
+export interface PlanIntent {
+  intent: string
+  confidence: number
+  needsConfirmation: boolean
+  parameters: Record<string, unknown>
+  note: string
+}
+
+export interface PlanExplanation {
+  explanation: string
+  source: 'QWEN_SPRING_AI' | 'DETERMINISTIC_FALLBACK'
+  diff: PlanDiff
+}

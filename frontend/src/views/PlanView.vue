@@ -41,7 +41,7 @@ import RouteMap from '../components/RouteMap.vue'
 import SiteHeader from '../components/SiteHeader.vue'
 import { api } from '../services/api'
 import { useTripStore } from '../services/tripStore'
-import type { DayPlan, Plan, PlanItem, Poi } from '../types'
+import type { DayPlan, Plan, PlanDiff, PlanIntent, PlanItem, Poi } from '../types'
 
 const route = useRoute()
 const router = useRouter()
@@ -59,6 +59,12 @@ const swapTarget = ref<PlanItem | null>(null)
 const alternatives = ref<Poi[]>([])
 const swapping = ref(false)
 const feedback = ref('')
+const comparedVersion = ref<Plan | null>(null)
+const planDiff = ref<PlanDiff | null>(null)
+const diffLoading = ref(false)
+const diffExplanation = ref('')
+const explainingDiff = ref(false)
+const intentPreview = ref<PlanIntent | null>(null)
 
 const activeDay = computed<DayPlan | undefined>(() => {
   return plan.value?.dayPlans.find((day) => day.dayNumber === activeDayNumber.value)
@@ -131,6 +137,9 @@ function applyPlan(next: Plan) {
 async function openVersions() {
   if (!plan.value) return
   versionsOpen.value = true
+  planDiff.value = null
+  comparedVersion.value = null
+  diffExplanation.value = ''
   versions.value = await api.getVersions(plan.value.requestId).catch(() => versions.value)
 }
 
@@ -138,10 +147,12 @@ async function restoreVersion(version: Plan) {
   if (!plan.value || refreshLoading.value) return
   refreshLoading.value = true
   try {
-    const restored = await api.restoreVersion(version.id)
-    applyPlan(restored)
+    const result = await api.rollbackPlan(version.id)
+    applyPlan(result.currentPlan)
     versionsOpen.value = false
-    feedback.value = `已恢复版本 v${version.version}，并创建新的 v${restored.version}。`
+    feedback.value = result.createdNewVersion
+      ? `已恢复版本 v${version.version}，并创建新的 v${result.currentPlan.version}。`
+      : `版本 v${version.version} 与当前内容一致，无需重复创建。`
   } catch (reason) {
     error.value = reason instanceof Error ? reason.message : '版本恢复失败'
   } finally {
@@ -149,12 +160,59 @@ async function restoreVersion(version: Plan) {
   }
 }
 
+async function compareVersion(version: Plan) {
+  if (!plan.value || diffLoading.value) return
+  comparedVersion.value = version
+  diffLoading.value = true
+  diffExplanation.value = ''
+  try {
+    planDiff.value = await api.getPlanDiff(plan.value.id, version.id)
+  } catch (reason) {
+    error.value = reason instanceof Error ? reason.message : '版本对比失败'
+  } finally {
+    diffLoading.value = false
+  }
+}
+
+async function explainDiff() {
+  if (!plan.value || !comparedVersion.value || explainingDiff.value) return
+  explainingDiff.value = true
+  try {
+    const result = await api.explainPlanDiff(plan.value.id, comparedVersion.value.id)
+    planDiff.value = result.diff
+    diffExplanation.value = result.explanation
+  } catch (reason) {
+    error.value = reason instanceof Error ? reason.message : '暂时无法生成变更解释'
+  } finally {
+    explainingDiff.value = false
+  }
+}
+
 async function refinePlan() {
   if (!plan.value || !refineText.value.trim() || refining.value) return
+  if (!intentPreview.value) {
+    refining.value = true
+    error.value = ''
+    try {
+      const intent = await api.interpretPlan(plan.value.id, refineText.value)
+      if (intent.intent === 'UNKNOWN') {
+        error.value = '暂时没理解这条调整，请换一种说法。'
+        return
+      }
+      intentPreview.value = intent
+    } catch (reason) {
+      error.value = reason instanceof Error ? reason.message : '指令理解失败'
+    } finally {
+      refining.value = false
+    }
+    return
+  }
+
   refining.value = true
   error.value = ''
   try {
-    const updated = await api.updateFromNaturalLanguage(plan.value.requestId, refineText.value)
+    const normalizedMessage = normalizeIntent(intentPreview.value, refineText.value)
+    const updated = await api.updateFromNaturalLanguage(plan.value.requestId, normalizedMessage)
     if (updated.missingFields.length) {
       error.value = '还需要补充：' + updated.missingFields.join('、')
       return
@@ -162,6 +220,7 @@ async function refinePlan() {
     const next = await api.generatePlan(updated.requestId)
     applyPlan(next)
     refineText.value = ''
+    intentPreview.value = null
     versions.value = await api.getVersions(next.requestId)
     feedback.value = '已根据你的修改生成新版本。'
   } catch (reason) {
@@ -169,6 +228,24 @@ async function refinePlan() {
   } finally {
     refining.value = false
   }
+}
+
+function clearIntentPreview() {
+  intentPreview.value = null
+}
+
+function normalizeIntent(intent: PlanIntent, original: string) {
+  const parts: string[] = []
+  const budget = Number(intent.parameters.budget)
+  if (Number.isFinite(budget) && budget > 0) {
+    parts.push(`预算改成 ${budget} 元`)
+  }
+  if (intent.parameters.pace === 'RELAXED') {
+    parts.push('轻松一点')
+  } else if (intent.parameters.pace === 'BALANCED') {
+    parts.push('紧凑一点')
+  }
+  return parts.length ? parts.join('，') : original
 }
 
 async function openSwap(item: PlanItem) {
@@ -454,12 +531,31 @@ function goHome() {
               </div>
               <p>直接说，例如“第二天轻松一点”或“预算改成 2800”。</p>
               <form @submit.prevent="refinePlan">
-                <input v-model="refineText" placeholder="写下你的调整..." maxlength="120" />
+                <input
+                  v-model="refineText"
+                  placeholder="写下你的调整..."
+                  maxlength="120"
+                  @input="clearIntentPreview"
+                />
                 <button type="submit" :disabled="refining || !refineText.trim()">
                   <span v-if="refining" class="spinner"></span>
+                  <CheckCircle2 v-else-if="intentPreview" :size="16" />
                   <ArrowRight v-else :size="16" />
                 </button>
               </form>
+              <div v-if="intentPreview" class="intent-preview">
+                <Sparkles :size="13" />
+                <span>
+                  识别为 {{ intentPreview.intent }}
+                  <template v-if="intentPreview.parameters.budget">
+                    · 预算 ¥{{ intentPreview.parameters.budget }}
+                  </template>
+                  <template v-if="intentPreview.parameters.pace">
+                    · 节奏 {{ intentPreview.parameters.pace }}
+                  </template>
+                </span>
+              </div>
+              <p v-if="error" class="refine-error">{{ error }}</p>
               <div class="refine-chips">
                 <button type="button" @click="refineText = '第二天轻松一点'">第二天轻松点</button>
                 <button type="button" @click="refineText = '预算改成 2800 元'">降低预算</button>
@@ -524,11 +620,62 @@ function goHome() {
                   <p>{{ version.dayPlans.length }} 天 · ¥{{ formatMoney(version.estimatedCost) }} · {{ version.passed ? '校验通过' : '有待确认项' }}</p>
                 </div>
                 <span v-if="version.id === plan.id" class="version-current">当前</span>
-                <button v-else type="button" :disabled="refreshLoading" @click="restoreVersion(version)">
-                  <RotateCcw :size="13" /> 恢复
-                </button>
+                <div v-else class="version-actions">
+                  <button type="button" @click="compareVersion(version)">
+                    <Layers3 :size="13" /> 对比
+                  </button>
+                  <button type="button" :disabled="refreshLoading" @click="restoreVersion(version)">
+                    <RotateCcw :size="13" /> 恢复
+                  </button>
+                </div>
               </article>
             </div>
+
+            <div v-if="diffLoading" class="diff-loading">
+              <span class="spinner spinner--dark"></span>
+              <p>正在计算语义差异...</p>
+            </div>
+
+            <section v-else-if="planDiff" class="diff-panel">
+              <header>
+                <div>
+                  <span>SEMANTIC DIFF</span>
+                  <h3>v{{ planDiff.fromVersion }} → v{{ planDiff.toVersion }}</h3>
+                </div>
+                <button type="button" :disabled="explainingDiff" @click="explainDiff">
+                  <Sparkles :size="13" />
+                  {{ explainingDiff ? '解释中' : 'AI 解释原因' }}
+                </button>
+              </header>
+
+              <p v-if="planDiff.identical" class="diff-identical">两个版本的行程内容一致。</p>
+              <div v-else class="diff-content">
+                <div class="diff-summary">
+                  <span>新增 {{ planDiff.summary.additions }}</span>
+                  <span>移除 {{ planDiff.summary.removals }}</span>
+                  <span>替换 {{ planDiff.summary.replacements }}</span>
+                  <span>时间变化 {{ planDiff.summary.timeChanges }}</span>
+                  <span>费用变化 ¥{{ formatMoney(planDiff.summary.costDelta) }}</span>
+                </div>
+                <article v-for="(change, index) in planDiff.changes.slice(0, 8)" :key="`${change.type}-${index}`">
+                  <span>{{ change.type }}</span>
+                  <strong>{{ change.description }}</strong>
+                  <p v-if="change.before || change.after">
+                    <em>{{ change.before || '无' }}</em>
+                    <ArrowRight :size="11" />
+                    <em>{{ change.after || '无' }}</em>
+                  </p>
+                </article>
+                <p v-if="planDiff.changes.length > 8" class="diff-more">
+                  另有 {{ planDiff.changes.length - 8 }} 项变化
+                </p>
+              </div>
+
+              <blockquote v-if="diffExplanation">
+                <Sparkles :size="13" />
+                {{ diffExplanation }}
+              </blockquote>
+            </section>
           </section>
         </div>
       </Transition>
@@ -1409,6 +1556,30 @@ function goHome() {
   margin-top: 9px;
 }
 
+.intent-preview {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  background: rgba(198, 103, 67, 0.08);
+  color: #8a5a43;
+  font-size: 7px;
+}
+
+.intent-preview svg {
+  flex: 0 0 auto;
+  color: var(--clay);
+}
+
+.refine-error {
+  margin: 8px 0 0;
+  color: #9e4d33;
+  font-size: 8px;
+  line-height: 1.5;
+}
+
 .refine-chips button {
   padding: 5px 8px;
   border: 0;
@@ -1710,13 +1881,173 @@ function goHome() {
   font-size: 8px;
 }
 
-.versions-list article > button {
+.version-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.version-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--forest);
+  font-size: 8px;
   cursor: pointer;
 }
 
 .version-current {
   color: #5b8269;
   border-color: rgba(83, 124, 94, 0.18);
+}
+
+.diff-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+  padding: 16px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.36);
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.diff-panel {
+  margin-top: 20px;
+  padding: 17px;
+  border: 1px solid rgba(52, 88, 70, 0.14);
+  border-radius: 13px;
+  background: rgba(232, 239, 229, 0.38);
+}
+
+.diff-panel > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+}
+
+.diff-panel header > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.diff-panel header span {
+  color: #738578;
+  font-size: 6px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+
+.diff-panel h3 {
+  margin: 0;
+  color: var(--forest);
+  font-family: var(--font-display);
+  font-size: 19px;
+}
+
+.diff-panel header button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 10px;
+  border: 1px solid rgba(54, 94, 72, 0.16);
+  border-radius: 999px;
+  background: #fffdf8;
+  color: var(--forest);
+  font-size: 8px;
+  cursor: pointer;
+}
+
+.diff-panel header button:disabled {
+  opacity: 0.5;
+}
+
+.diff-identical {
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.diff-summary {
+  display: flex;
+  gap: 6px;
+  margin: 14px 0;
+  flex-wrap: wrap;
+}
+
+.diff-summary span {
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+  color: #65776a;
+  font-size: 7px;
+}
+
+.diff-content article {
+  padding: 9px 0;
+  border-top: 1px solid rgba(48, 82, 64, 0.1);
+}
+
+.diff-content article > span {
+  color: var(--clay);
+  font-size: 6px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.diff-content article strong {
+  display: block;
+  margin: 4px 0;
+  color: var(--forest);
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.diff-content article p {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.diff-content article em {
+  max-width: 45%;
+  overflow: hidden;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diff-more {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.diff-panel blockquote {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 14px 0 0;
+  padding: 11px;
+  border-radius: 9px;
+  background: rgba(255, 253, 246, 0.78);
+  color: var(--muted-strong);
+  font-size: 9px;
+  line-height: 1.7;
+}
+
+.diff-panel blockquote svg {
+  flex: 0 0 auto;
+  color: var(--clay);
 }
 
 .swap-dialog header p:last-child {
