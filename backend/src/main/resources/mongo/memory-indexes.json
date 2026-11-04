@@ -1,0 +1,71 @@
+{
+  "database": "travel_memory",
+  "collections": [
+    {
+      "name": "user_profiles",
+      "indexes": [
+        {
+          "keys": {"userId": 1},
+          "options": {"unique": true, "name": "uk_user_profiles_user"}
+        }
+      ]
+    },
+    {
+      "name": "preference_signals",
+      "indexes": [
+        {
+          "keys": {"userId": 1, "type": 1, "key": 1, "status": 1},
+          "options": {"name": "idx_preference_lookup"}
+        },
+        {
+          "keys": {"expiresAt": 1},
+          "options": {"name": "ttl_preference_expiry", "expireAfterSeconds": 0}
+        }
+      ]
+    },
+    {
+      "name": "memory_episodes",
+      "indexes": [
+        {
+          "keys": {"userId": 1, "eventAt": -1},
+          "options": {"name": "idx_episode_recent"}
+        }
+      ]
+    },
+    {
+      "name": "entity_references",
+      "indexes": [
+        {
+          "keys": {"userId": 1, "sessionId": 1, "createdAt": -1},
+          "options": {"name": "idx_entity_reference_recent"}
+        },
+        {
+          "keys": {"expiresAt": 1},
+          "options": {"name": "ttl_entity_reference", "expireAfterSeconds": 0}
+        }
+      ]
+    },
+    {
+      "name": "trip_snapshots",
+      "indexes": [
+        {
+          "keys": {"userId": 1, "createdAt": -1},
+          "options": {"name": "idx_trip_snapshot_recent"}
+        },
+        {
+          "keys": {"userId": 1, "tripId": 1, "planId": 1, "planVersion": 1},
+          "options": {"unique": true, "name": "uk_trip_snapshot_version"}
+        }
+      ]
+    },
+    {
+      "name": "memory_audit",
+      "indexes": [
+        {
+          "keys": {"userId": 1, "createdAt": -1},
+          "options": {"name": "idx_memory_audit_user"}
+        }
+      ]
+    }
+  ]
+}
