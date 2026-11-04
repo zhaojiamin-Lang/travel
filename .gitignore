@@ -24,6 +24,10 @@ frontend/vite.config.d.ts
 # Agent workspace (local notes, not part of the app)
 .workbuddy/
 
+# Markdown 文档只留本地，不进仓库（保留各目录的 README.md）
+*.md
+!README.md
+
 # OS
 .DS_Store
 Thumbs.db
