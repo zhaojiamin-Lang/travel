@@ -1,6 +1,7 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    # 使用带 pgvector 扩展的兼容镜像，V6 迁移才能创建 HNSW 索引。
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_DB: travel_guide
       POSTGRES_USER: travel
@@ -14,6 +15,18 @@ services:
       interval: 5s
       timeout: 3s
       retries: 12
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - travel_mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
 
 volumes:
   travel_pg_data:
+  travel_mongo_data:

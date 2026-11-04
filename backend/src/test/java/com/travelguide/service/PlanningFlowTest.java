@@ -14,6 +14,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.beans.factory.annotation.Autowired;
+import com.travelguide.repo.PoiRepository;
+import com.travelguide.rag.query.AnswerScopePolicy;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -21,6 +26,7 @@ import java.time.LocalTime;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest(properties = {
         "travel.ai.api-key=",
@@ -36,6 +42,12 @@ class PlanningFlowTest {
 
     @Autowired
     private AuthService authService;
+
+    @Autowired
+    private PoiRepository poiRepository;
+
+    @Autowired
+    private GuideNarrativeComposer guideNarrativeComposer;
 
     @Test
     void generatesAValidatedPlanAndLoadsGuideContent() {
@@ -70,8 +82,39 @@ class PlanningFlowTest {
         assertThat(selected.currentPoi()).isNotNull();
         assertThat(selected.currentPoi().name()).isEqualTo("外滩");
 
+        GuideSessionView museumSession = guideService.create(new GuideCreateRequest(plan.id()));
+        GuideSessionView museum = guideService.select(museumSession.id(), "shanghai-museum");
+        assertThat(museum.currentPoi().narrative())
+                .contains("各位朋友，上午好")
+                .contains("世界树之巅")
+                .contains("南京路");
+        var shortMuseumGuide = guideService.ask(
+                museumSession.id(),
+                "给我一段更短的讲解。"
+        );
+        assertThat(shortMuseumGuide.answer())
+                .contains("世界树之巅")
+                .contains("1.5到2.5小时")
+                .doesNotContain("城隍庙");
+
         var answer = guideService.ask(session.id(), "附近还能看什么？");
         assertThat(answer.answer()).isNotBlank();
+
+        var grounded = guideService.ask(session.id(), "这里门票多少钱？");
+        assertThat(grounded.answer()).isNotBlank();
+        assertThat(grounded.citations()).isNotEmpty();
+        assertThat(grounded.citations().get(0).evidenceId()).startsWith("E");
+        assertThat(grounded.claims()).anyMatch(claim -> "CITED".equals(claim.support()));
+        assertThat(grounded.retrieval()).isNotNull();
+        assertThat(grounded.retrieval().indexedDocuments()).isPositive();
+
+        var offTopic = guideService.ask(
+                session.id(),
+                "量子纠缠是什么？"
+        );
+        assertThat(offTopic.answer()).isEqualTo(AnswerScopePolicy.UNSUPPORTED_ANSWER);
+        assertThat(offTopic.citations()).isEmpty();
+        assertThat(offTopic.claims()).isEmpty();
     }
 
     @Test
@@ -153,6 +196,50 @@ class PlanningFlowTest {
     }
 
     @Test
+    void isolatesPlansAndGuideSessionsBetweenUsers() {
+        MockHttpSession ownerSession = new MockHttpSession();
+        MockHttpSession strangerSession = new MockHttpSession();
+        var owner = authService.register(
+                ownerSession,
+                new RegisterRequest(
+                        "owner-" + UUID.randomUUID().toString().substring(0, 8) + "@example.com",
+                        "password123",
+                        "行程所有者"
+                )
+        );
+        var stranger = authService.register(
+                strangerSession,
+                new RegisterRequest(
+                        "stranger-" + UUID.randomUUID().toString().substring(0, 8) + "@example.com",
+                        "password123",
+                        "其他用户"
+                )
+        );
+        DraftResponse draft = planningService.createDraft(
+                new DraftRequest("owner-test", "2030年8月1日去上海玩一天，预算 1000 元。"),
+                owner.id()
+        );
+        PlanView plan = planningService.generatePlan(draft.requestId(), owner.id());
+        GuideSessionView guide = guideService.create(
+                new GuideCreateRequest(plan.id()),
+                owner.id()
+        );
+
+        assertThatThrownBy(() -> planningService.getPlan(plan.id(), stranger.id()))
+                .isInstanceOfSatisfying(
+                        ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode())
+                                .isEqualTo(HttpStatus.FORBIDDEN)
+                );
+        assertThatThrownBy(() -> guideService.get(guide.id(), stranger.id()))
+                .isInstanceOfSatisfying(
+                        ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode())
+                                .isEqualTo(HttpStatus.FORBIDDEN)
+                );
+    }
+
+    @Test
     void usesNaturalLanguageInterestsInsteadOfAFixedRoute() {
         var architecture = planningService.createDraft(new DraftRequest(
                 "interest-architecture",
@@ -216,5 +303,20 @@ class PlanningFlowTest {
         );
         assertThat(completed.city()).isEqualTo("上海");
         assertThat(planningService.generatePlan(completed.requestId()).passed()).isTrue();
+    }
+
+    @Test
+    void everyPoiUsesTheSameStructuredGuideNarrative() {
+        var pois = poiRepository.findAll();
+        assertThat(pois).hasSizeGreaterThanOrEqualTo(32);
+
+        for (var poi : pois) {
+            assertThat(guideNarrativeComposer.compose(poi))
+                    .as("景点 %s 的讲解", poi.getName())
+                    .startsWith("各位朋友")
+                    .contains("我是今天的讲解员")
+                    .contains("建议")
+                    .contains(poi.getName());
+        }
     }
 }

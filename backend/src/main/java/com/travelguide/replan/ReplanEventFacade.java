@@ -43,8 +43,8 @@ public class ReplanEventFacade {
         this.listener = listener;
         this.objectMapper = objectMapper;
     }
-
-    @Transactional
+    //「景点闭馆事件上报」的入口方法
+    @Transactional //事件入库、监听器生成提案、事件状态更新，这三步原子性
     public ReplanProposalView reportClosure(ClosureEventRequest request) {
         Instant now = Instant.now();
         TravelEventEntity event = createEvent(

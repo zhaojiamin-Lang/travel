@@ -42,6 +42,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Matcher;
@@ -189,6 +190,16 @@ public class PlanningService {
     }
 
     @Transactional
+    public DraftResponse updateFromNaturalLanguage(
+            String requestId,
+            NaturalLanguageUpdateRequest request,
+            String ownerId
+    ) {
+        requireRequestOwner(requestId, ownerId);
+        return updateFromNaturalLanguage(requestId, request);
+    }
+
+    @Transactional
     public DraftResponse updateRequirements(String requestId, RequirementsUpdate update) {
         TripRequestEntity entity = requireRequest(requestId);
         if (update.city() != null && !update.city().isBlank()) {
@@ -232,6 +243,16 @@ public class PlanningService {
         entity.setSummary(buildSummary(entity, mustSeeEntities(entity)));
         requestRepository.save(entity);
         return toDraft(entity, poiRepository.findAll());
+    }
+
+    @Transactional
+    public DraftResponse updateRequirements(
+            String requestId,
+            RequirementsUpdate update,
+            String ownerId
+    ) {
+        requireRequestOwner(requestId, ownerId);
+        return updateRequirements(requestId, update);
     }
 
     @Transactional
@@ -345,6 +366,12 @@ public class PlanningService {
         return plan;
     }
 
+    @Transactional
+    public PlanView generatePlan(String requestId, String ownerId) {
+        requireRequestOwner(requestId, ownerId);
+        return generatePlan(requestId);
+    }
+
     public List<PlanView> listVersions(String requestId) {
         requireRequest(requestId);
         return planRepository.findByRequestIdOrderByVersionDesc(requestId).stream()
@@ -356,6 +383,11 @@ public class PlanningService {
                     }
                 })
                 .toList();
+    }
+
+    public List<PlanView> listVersions(String requestId, String ownerId) {
+        requireRequestOwner(requestId, ownerId);
+        return listVersions(requestId);
     }
 
     public List<HistoryItem> history(String ownerId) {
@@ -439,6 +471,12 @@ public class PlanningService {
         return swapped;
     }
 
+    @Transactional
+    public PlanView swapPoi(String planId, SwapRequest request, String ownerId) {
+        requirePlanOwner(planId, ownerId);
+        return swapPoi(planId, request);
+    }
+
     public List<PoiView> alternatives(String planId, String itemId) {
         PlanView plan = getPlan(planId);
         PlanItem target = plan.dayPlans().stream()
@@ -456,6 +494,11 @@ public class PlanningService {
                 .limit(5)
                 .map(poiMapper::toView)
                 .toList();
+    }
+
+    public List<PoiView> alternatives(String planId, String itemId, String ownerId) {
+        requirePlanOwner(planId, ownerId);
+        return alternatives(planId, itemId);
     }
 
     @Transactional
@@ -489,6 +532,12 @@ public class PlanningService {
         return restored;
     }
 
+    @Transactional
+    public PlanView restoreVersion(String planId, String ownerId) {
+        requirePlanOwner(planId, ownerId);
+        return restoreVersion(planId);
+    }
+
     public PlanView getPlan(String planId) {
         TripPlanEntity entity = planRepository.findById(planId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "行程不存在"));
@@ -499,9 +548,30 @@ public class PlanningService {
         }
     }
 
+    public PlanView getPlan(String planId, String ownerId) {
+        requirePlanOwner(planId, ownerId);
+        return getPlan(planId);
+    }
+
     public TripRequestEntity requireRequest(String requestId) {
         return requestRepository.findById(requestId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "旅行需求不存在"));
+    }
+
+    public void requireRequestOwner(String requestId, String ownerId) {
+        TripRequestEntity request = requireRequest(requestId);
+        if (!Objects.equals(request.getOwnerId(), ownerId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "无权访问该旅行需求");
+        }
+    }
+
+    public void requirePlanOwner(String planId, String ownerId) {
+        TripPlanEntity plan = planRepository.findById(planId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "行程不存在"));
+        TripRequestEntity request = requireRequest(plan.getRequestId());
+        if (!Objects.equals(request.getOwnerId(), ownerId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "无权访问该行程");
+        }
     }
 
     public List<PoiEntity> mustSeeEntities(TripRequestEntity request) {

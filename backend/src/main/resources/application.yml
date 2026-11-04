@@ -10,34 +10,72 @@ server:
 spring:
   application:
     name: travel-guide-mvp
+  autoconfigure:
+    # 由 MongoMemoryConfiguration 按显式 URI 条件创建，避免空配置连接 localhost。
+    exclude: org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration
   config:
     import: optional:file:./.env.properties
   datasource:
-    url: jdbc:h2:file:./data/travel-guide;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;AUTO_SERVER=TRUE
-    username: sa
-    password:
-    driver-class-name: org.h2.Driver
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/travel_guide}
+    username: ${DATABASE_USERNAME:travel}
+    password: ${DATABASE_PASSWORD:travel}
+    driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     open-in-view: false
     properties:
       hibernate:
         format_sql: true
   flyway:
-    enabled: false
+    enabled: true
+    locations: classpath:db/migration/postgres
   jackson:
     default-property-inclusion: non_null
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2s
 
 travel:
   ai:
     api-key: ${TRAVEL_AI_API_KEY:}
     model: ${TRAVEL_AI_MODEL:qwen-plus}
+    embedding-model: ${TRAVEL_AI_EMBEDDING_MODEL:text-embedding-v3}
     base-url: ${TRAVEL_AI_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode}
+    rerank-model: ${TRAVEL_AI_RERANK_MODEL:gte-rerank-v2}
+    rerank-base-url: ${TRAVEL_AI_RERANK_BASE_URL:https://dashscope.aliyuncs.com/api/v1}
   map:
     amap-key: ${AMAP_WEB_KEY:}
     amap-service-key: ${AMAP_WEB_SERVICE_KEY:}
+  weathercn:
+    # 真实 Key 只通过环境变量注入，禁止把密钥提交到仓库。
+    api-key: ${TRAVEL_WEATHERCN_API_KEY:}
+    base-url: ${TRAVEL_WEATHERCN_BASE_URL:https://openapi.weathercn.com}
+  memory:
+    mongodb:
+      uri: ${TRAVEL_MONGODB_URI:mongodb://localhost:27017}
+      database: ${TRAVEL_MONGODB_DATABASE:travel_memory}
+  rag:
+    knowledge-path: ${TRAVEL_RAG_KNOWLEDGE_PATH:knowledge}
+    embedding-cache-enabled: true
+    pgvector-enabled: ${TRAVEL_RAG_PGVECTOR_ENABLED:true}
+    answer-cache-enabled: true
+    answer-cache-ttl-seconds: ${TRAVEL_RAG_CACHE_TTL_SECONDS:600}
+  mcp:
+    client:
+      enabled: ${TRAVEL_MCP_CLIENT_ENABLED:true}
+      refresh-interval-ms: ${TRAVEL_MCP_CLIENT_REFRESH_MS:60000}
 
 logging:
+  pattern:
+    level: "[traceId=%X{traceId:-}] %5p"
   level:
     com.travelguide: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics

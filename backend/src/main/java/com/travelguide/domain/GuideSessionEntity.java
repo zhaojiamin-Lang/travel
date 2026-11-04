@@ -12,6 +12,7 @@ public class GuideSessionEntity {
 
     @Id
     private String id;
+    private String userId;
     private String planId;
     private String currentPoiId;
     private String status;
@@ -24,6 +25,14 @@ public class GuideSessionEntity {
 
     public void setId(String id) {
         this.id = id;
+    }
+
+    public String getUserId() {
+        return userId;
+    }
+
+    public void setUserId(String userId) {
+        this.userId = userId;
     }
 
     public String getPlanId() {

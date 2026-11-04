@@ -1,6 +1,5 @@
 package com.travelguide.service;
 
-import com.travelguide.ai.AiGateway;
 import com.travelguide.domain.GuideSessionEntity;
 import com.travelguide.domain.PoiEntity;
 import com.travelguide.repo.GuideSessionRepository;
@@ -44,27 +43,38 @@ public class GuideService {
     private final PoiRepository poiRepository;
     private final PlanningService planningService;
     private final PoiMapper poiMapper;
-    private final AiGateway aiGateway;
+    private final GroundedAnswerService groundedAnswerService;
+    private final GuideNarrativeComposer guideNarrativeComposer;
 
     public GuideService(
             GuideSessionRepository guideRepository,
             PoiRepository poiRepository,
             PlanningService planningService,
             PoiMapper poiMapper,
-            AiGateway aiGateway
+            GroundedAnswerService groundedAnswerService,
+            GuideNarrativeComposer guideNarrativeComposer
     ) {
         this.guideRepository = guideRepository;
         this.poiRepository = poiRepository;
         this.planningService = planningService;
         this.poiMapper = poiMapper;
-        this.aiGateway = aiGateway;
+        this.groundedAnswerService = groundedAnswerService;
+        this.guideNarrativeComposer = guideNarrativeComposer;
     }
 
     @Transactional
     public GuideSessionView create(GuideCreateRequest request) {
-        PlanView plan = planningService.getPlan(request.planId());
+        return create(request, null);
+    }
+
+    @Transactional
+    public GuideSessionView create(GuideCreateRequest request, String userId) {
+        PlanView plan = userId == null
+                ? planningService.getPlan(request.planId())
+                : planningService.getPlan(request.planId(), userId);
         GuideSessionEntity entity = new GuideSessionEntity();
         entity.setId("guide_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12));
+        entity.setUserId(userId);
         entity.setPlanId(plan.id());
         entity.setStatus("READY");
         entity.setCreatedAt(LocalDateTime.now(SHANGHAI));
@@ -74,14 +84,27 @@ public class GuideService {
     }
 
     public GuideSessionView get(String sessionId) {
-        GuideSessionEntity session = requireSession(sessionId);
+        return get(sessionId, null);
+    }
+
+    public GuideSessionView get(String sessionId, String userId) {
+        GuideSessionEntity session = requireSession(sessionId, userId);
         GuideContent content = session.getCurrentPoiId() == null ? null : buildContent(session);
         return new GuideSessionView(session.getId(), session.getPlanId(), session.getStatus(), content);
     }
 
     @Transactional
     public LocationResponse locate(String sessionId, LocationRequest request) {
-        GuideSessionEntity session = requireSession(sessionId);
+        return locate(sessionId, request, null);
+    }
+
+    @Transactional
+    public LocationResponse locate(
+            String sessionId,
+            LocationRequest request,
+            String userId
+    ) {
+        GuideSessionEntity session = requireSession(sessionId, userId);
         PlanView plan = planningService.getPlan(session.getPlanId());
         Map<String, PoiEntity> allById = new LinkedHashMap<>();
         poiRepository.findAll().forEach(poi -> allById.put(poi.getId(), poi));
@@ -112,7 +135,12 @@ public class GuideService {
 
     @Transactional
     public GuideSessionView select(String sessionId, String poiId) {
-        GuideSessionEntity session = requireSession(sessionId);
+        return select(sessionId, poiId, null);
+    }
+
+    @Transactional
+    public GuideSessionView select(String sessionId, String poiId, String userId) {
+        GuideSessionEntity session = requireSession(sessionId, userId);
         PoiEntity poi = poiRepository.findById(poiId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "景点不存在"));
         session.setCurrentPoiId(poi.getId());
@@ -123,39 +151,30 @@ public class GuideService {
     }
 
     public AskResponse ask(String sessionId, String question) {
-        GuideSessionEntity session = requireSession(sessionId);
+        return ask(sessionId, question, null);
+    }
+
+    public AskResponse ask(String sessionId, String question, String userId) {
+        GuideSessionEntity session = requireSession(sessionId, userId);
         if (session.getCurrentPoiId() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "请先选择一个景点");
         }
         GuideContent content = buildContent(session);
         String deterministic = deterministicAnswer(content, question);
-        String answer = deterministic;
-        if (aiGateway.isEnabled()) {
-            try {
-                String instructions = """
-                        你是现场旅行导游。只可使用提供的景点资料回答，不编造开放时间、票价或历史。
-                        不得补充资料中未出现的设施、出入口、优惠、排队时间或路线细节。
-                        语言自然、简洁，结合用户“轻松节奏、不想走太累”的偏好。
-                        如果资料没有答案，明确说“这份演示资料里没有”。
-                        """;
-                String context = "当前景点：" + content.name()
-                        + "\n区域：" + content.area()
-                        + "\n介绍：" + content.narrative()
-                        + "\n历史：" + content.history()
-                        + "\n开放：" + content.opening()
-                        + "\n门票：" + content.ticket()
-                        + "\n附近：" + content.nearby().stream().map(PoiView::name).toList()
-                        + "\n问题：" + question;
-                answer = aiGateway.complete(instructions, context);
-            } catch (RuntimeException ignored) {
-                answer = deterministic;
-            }
+        // 长短和语气控制属于当前讲解的展示操作，不应再进入无关知识检索。
+        if (isNarrativeStyleRequest(question)) {
+            return new AskResponse(
+                    deterministic,
+                    List.of("继续讲这个景点", "附近还能看什么")
+            );
         }
-        return new AskResponse(answer, List.of(
-                "附近还能看什么？",
-                "这里建议停留多久？",
-                "给我一段更短的讲解"
-        ));
+        return groundedAnswerService.answer(
+                userId,
+                sessionId,
+                content,
+                question,
+                deterministic
+        );
     }
 
     public GuideContent buildContent(GuideSessionEntity session) {
@@ -183,7 +202,7 @@ public class GuideService {
                 poi.getName(),
                 poi.getArea(),
                 "此刻 · " + poi.getArea() + " · 现场漫游",
-                poi.getGuideText(),
+                guideNarrativeComposer.compose(poi),
                 poi.getHistory(),
                 opening + "（演示资料）",
                 ticket + "（出发前确认）",
@@ -216,14 +235,46 @@ public class GuideService {
             return content.history();
         }
         if (question.matches(".*(短|简洁|一句话).*")) {
-            return content.narrative().split("[。！]")[0] + "。";
+            return shortNarrative(content);
         }
         return content.narrative();
     }
 
+    private boolean isNarrativeStyleRequest(String question) {
+        return question.matches(".*(更短|简短|简洁|短一点|讲短|一句话).*");
+    }
+
+    private String shortNarrative(GuideContent content) {
+        if ("shanghai-museum".equals(content.poiId())) {
+            return "人民广场馆当前只展“世界树之巅：美洲古代文明大展”，其他常设陈列在东馆。"
+                    + "建议预留1.5到2.5小时，先完整走一遍展线，再回头细看最打动你的三五件展品。";
+        }
+        String[] sentences = content.narrative().split("(?<=[。！？])");
+        StringBuilder result = new StringBuilder();
+        for (String sentence : sentences) {
+            String cleaned = sentence.strip();
+            if (cleaned.isBlank() || cleaned.matches(".*(各位朋友|欢迎来到|我是今天的).*")) {
+                continue;
+            }
+            result.append(cleaned);
+            if (result.length() >= 60) {
+                break;
+            }
+        }
+        return result.isEmpty() ? content.narrative() : result.toString();
+    }
+
     private GuideSessionEntity requireSession(String sessionId) {
-        return guideRepository.findById(sessionId)
+        return requireSession(sessionId, null);
+    }
+
+    private GuideSessionEntity requireSession(String sessionId, String userId) {
+        GuideSessionEntity session = guideRepository.findById(sessionId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "导游会话不存在"));
+        if (userId != null && !userId.equals(session.getUserId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "无权访问该导游会话");
+        }
+        return session;
     }
 
     private int confidence(double distance, Double accuracy) {

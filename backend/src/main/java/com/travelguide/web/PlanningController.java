@@ -43,52 +43,79 @@ public class PlanningController {
     @PostMapping("/trips/{requestId}/messages")
     public DraftResponse updateFromNaturalLanguage(
             @PathVariable String requestId,
-            @Valid @RequestBody NaturalLanguageUpdateRequest request
+            @Valid @RequestBody NaturalLanguageUpdateRequest request,
+            HttpSession session
     ) {
-        return planningService.updateFromNaturalLanguage(requestId, request);
+        var user = authService.ensureUser(session);
+        return planningService.updateFromNaturalLanguage(
+                requestId,
+                request,
+                user.id()
+        );
     }
 
     @PatchMapping("/trips/{requestId}/requirements")
     public DraftResponse update(
             @PathVariable String requestId,
-            @RequestBody RequirementsUpdate update
+            @RequestBody RequirementsUpdate update,
+            HttpSession session
     ) {
-        return planningService.updateRequirements(requestId, update);
+        var user = authService.ensureUser(session);
+        return planningService.updateRequirements(requestId, update, user.id());
     }
 
     @PostMapping("/trips/{requestId}/plans")
-    public PlanView generate(@PathVariable String requestId) {
-        return planningService.generatePlan(requestId);
+    public PlanView generate(
+            @PathVariable String requestId,
+            HttpSession session
+    ) {
+        var user = authService.ensureUser(session);
+        return planningService.generatePlan(requestId, user.id());
     }
 
     @GetMapping("/trips/{requestId}/plans")
-    public List<PlanView> versions(@PathVariable String requestId) {
-        return planningService.listVersions(requestId);
+    public List<PlanView> versions(
+            @PathVariable String requestId,
+            HttpSession session
+    ) {
+        var user = authService.ensureUser(session);
+        return planningService.listVersions(requestId, user.id());
     }
 
     @GetMapping("/plans/{planId}")
-    public PlanView plan(@PathVariable String planId) {
-        return planningService.getPlan(planId);
+    public PlanView plan(@PathVariable String planId, HttpSession session) {
+        var user = authService.ensureUser(session);
+        return planningService.getPlan(planId, user.id());
     }
 
     @GetMapping("/plans/{planId}/items/{itemId}/alternatives")
-    public List<PoiView> alternatives(@PathVariable String planId, @PathVariable String itemId) {
-        return planningService.alternatives(planId, itemId);
+    public List<PoiView> alternatives(
+            @PathVariable String planId,
+            @PathVariable String itemId,
+            HttpSession session
+    ) {
+        var user = authService.ensureUser(session);
+        return planningService.alternatives(planId, itemId, user.id());
     }
 
     @PostMapping("/plans/{planId}/swap")
-    public PlanView swap(@PathVariable String planId, @Valid @RequestBody SwapRequest request) {
-        return planningService.swapPoi(planId, request);
+    public PlanView swap(
+            @PathVariable String planId,
+            @Valid @RequestBody SwapRequest request,
+            HttpSession session
+    ) {
+        var user = authService.ensureUser(session);
+        return planningService.swapPoi(planId, request, user.id());
     }
 
     @PostMapping("/plans/{planId}/restore")
-    public PlanView restore(@PathVariable String planId) {
-        return planningService.restoreVersion(planId);
+    public PlanView restore(@PathVariable String planId, HttpSession session) {
+        var user = authService.ensureUser(session);
+        return planningService.restoreVersion(planId, user.id());
     }
 
     @GetMapping("/history")
     public List<HistoryItem> history(HttpSession session) {
-        var user = authService.current(session);
-        return planningService.history(user == null ? null : user.id());
+        return planningService.history(authService.ensureUser(session).id());
     }
 }

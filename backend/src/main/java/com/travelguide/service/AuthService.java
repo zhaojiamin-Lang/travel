@@ -58,6 +58,30 @@ public class AuthService {
         return toView(guest);
     }
 
+    /**
+     * 恢复本地持久化的游客身份。仅允许 guest=true 的账号跨 Cookie 会话恢复。
+     */
+    @Transactional
+    public synchronized UserView restoreGuest(HttpSession session, String visitorId) {
+        UserView current = current(session);
+        if (current != null) {
+            return current;
+        }
+        UserEntity guest = userRepository.findById(visitorId)
+                .filter(user -> Boolean.TRUE.equals(user.getGuest()))
+                .orElse(null);
+        if (guest == null) {
+            UserEntity created = new UserEntity();
+            created.setId(visitorId);
+            created.setDisplayName("旅行者");
+            created.setGuest(true);
+            created.setCreatedAt(LocalDateTime.now(SHANGHAI));
+            guest = userRepository.save(created);
+        }
+        session.setAttribute(USER_SESSION_KEY, guest.getId());
+        return toView(guest);
+    }
+
     @Transactional
     public UserView register(HttpSession session, RegisterRequest request) {
         String email = normalizeEmail(request.email());

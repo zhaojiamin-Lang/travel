@@ -225,7 +225,71 @@ public final class ApiDtos {
     public record AskRequest(@NotBlank String question) {
     }
 
-    public record AskResponse(String answer, List<String> followUps) {
+    public record AnswerClaimView(
+            String claimId,
+            String text,
+            List<String> citationIds,
+            String support
+    ) {
+        public AnswerClaimView {
+            citationIds = citationIds == null ? List.of() : List.copyOf(citationIds);
+        }
+    }
+
+    public record EvidenceCitationView(
+            String evidenceId,
+            String docId,
+            int docVersion,
+            String title,
+            String section,
+            String sourceName,
+            String sourceUrl,
+            String sourceTier,
+            String dataConfidence,
+            String validFrom,
+            String validTo,
+            String quote,
+            String rawSnapshot
+    ) {
+    }
+
+    public record RagRetrievalMeta(
+            String originalQuery,
+            String standaloneQuery,
+            String intent,
+            List<String> channels,
+            int indexedDocuments,
+            int candidateCount,
+            int evidenceCount,
+            long latencyMs,
+            boolean cacheHit,
+            int llmCalls
+    ) {
+        public RagRetrievalMeta {
+            channels = channels == null ? List.of() : List.copyOf(channels);
+        }
+    }
+
+    public record AskResponse(
+            String answer,
+            List<String> followUps,
+            List<AnswerClaimView> claims,
+            List<EvidenceCitationView> citations,
+            List<String> uncertainties,
+            List<String> conflicts,
+            RagRetrievalMeta retrieval
+    ) {
+        public AskResponse {
+            followUps = followUps == null ? List.of() : List.copyOf(followUps);
+            claims = claims == null ? List.of() : List.copyOf(claims);
+            citations = citations == null ? List.of() : List.copyOf(citations);
+            uncertainties = uncertainties == null ? List.of() : List.copyOf(uncertainties);
+            conflicts = conflicts == null ? List.of() : List.copyOf(conflicts);
+        }
+
+        public AskResponse(String answer, List<String> followUps) {
+            this(answer, followUps, List.of(), List.of(), List.of(), List.of(), null);
+        }
     }
 
     public record BootstrapResponse(
