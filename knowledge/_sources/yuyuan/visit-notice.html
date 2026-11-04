@@ -1,0 +1,422 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!--2、指定视口信息-->
+    <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
+    <!--3、指定跨IE浏览器兼容性、优先使用最新版本 IE 和 Chrome-->
+    <meta http-equiv="x-ua-compatible" content="IE=edge,chrome=1"/>
+    <!-- 4、这meta的作用就是删除默认的苹果工具栏和菜单栏。
+   content有两个值”yes”和”no”,当我们需要显示工具栏和菜单栏时，这个行meta就不用加了，默认就是显示。 -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <!--5、设置状态栏的背景颜色（IOS）、设置为 black-translucent ,网页内容充满整个屏幕，顶部会被状态栏遮挡-->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <!-- 6、关闭移动端号码、邮件的自动识别-->
+    <meta name="format-detection" content="telephone=no,email=no">
+    <title>游览指南</title>
+    <link rel="stylesheet" href="css/mobile-reset.css"/>
+    <link rel="stylesheet" href="css/swiper.min.css">
+    <link rel="stylesheet" href="css/yyMobile.css?v=1.0"/>
+    <script src="js/jquery.min.js"></script>
+    <script src="js/FontSize.js"></script>
+    <style>
+        .swiper-container {
+            width: 100%;
+            height: 100%;
+        }
+        .swiper-slide {
+            display: inline-block;
+            width: 33.33%;
+            height: 100%;
+            line-height: 1.02rem;
+            color: #fff;
+            font-size: 0.24rem;
+            /* Center slide text vertically */
+            display: -webkit-box;
+            display: -ms-flexbox;
+            display: -webkit-flex;
+            display: flex;
+            -webkit-box-pack: center;
+            -ms-flex-pack: center;
+            -webkit-justify-content: center;
+            justify-content: center;
+            -webkit-box-align: center;
+            -ms-flex-align: center;
+            -webkit-align-items: center;
+            align-items: center;
+            cursor: pointer;
+        }
+        .message-container nav .active{
+            background:url(images/message/active.jpg) no-repeat center center;
+            background-size: 100% 100%;
+        }
+        .swiper-button-next, .swiper-button-prev {
+            position: absolute;
+            top: 20px;
+            width: 14px;
+            height: 1.08rem;
+            margin-top: -22px;
+            background-size: 14px 30px;
+        }
+        .swiper-button-next, .swiper-container-rtl .swiper-button-prev {
+            right: 4px;
+        }
+        .swiper-button-prev, .swiper-container-rtl .swiper-button-next {
+            left: 4px;
+        }
+    </style>
+</head>
+<body>
+<div class="message-container">
+    <nav>
+        <div class="swiper-container">
+            <div class="swiper-wrapper">
+                <div class="swiper-slide">游览须知</div>
+                <div class="swiper-slide active">参观信息</div>
+                <div class="swiper-slide">交通信息</div>
+                <div class="swiper-slide">设施信息</div>
+                <div class="swiper-slide">文明公约</div>
+            </div>
+            <!-- Add Arrows -->
+            <div class="swiper-button-next swiper-button-white"></div>
+            <div class="swiper-button-prev swiper-button-white"></div>
+        </div>
+        <!--<ul>-->
+        <!--<li><a href="javascript:;">游览须知</a></li>-->
+        <!--<li class="active"><a href="javascript:;">参观信息</a></li>-->
+        <!--<li><a href="javascript:;">交通信息</a></li>-->
+        <!--<li><a href="javascript:;">设施信息</a></li>-->
+        <!--<li><a href="javascript:;">文明公约</a></li>-->
+        <!--</ul>-->
+    </nav>
+    <div class="message-box">
+        <div class="message-imgBox">
+             <!--2024.7.2-->
+                <div class="msg-gaine">
+                    <fieldset class="msg-wrap">
+                        <legend>参观信息</legend>
+                        <p class="msg-remark"></p>
+                        <ul class="msg-list">
+    <li>
+        <h5 class="msg-list-title">购票途径：</h5>
+        <div class="msg-list-detail">
+            <p>豫园提供线上线下购票服务，线下豫园南北门均设有售票窗口，线上在“上海豫园”官方小程序购票。</p >
+        </div>
+    </li>
+    <li>
+        <h5 class="msg-list-title">开放时间：</h5>
+        <div class="msg-list-detail">
+            <p> 9:00—16:30 </p >
+            <p style="line-height: 1.2;margin-bottom: .14rem;">（16:00停止入园，16:30闭园）</p >
+            <p>每周一闭园（国家法定节假日除外，春节期间开放时间以公告时间为准）</p >
+        </div>
+    </li>
+    <li>
+        <h5 class="msg-list-title">游览入口：</h5>
+        <div class="msg-list-detail">
+            <p>1、豫园北门：上海市黄浦区福佑路168号（团队、散客入口）</p >
+			<p>2、豫园南门：上海市黄浦区豫园老街279号（九曲桥下桥口处，仅散客入口）</p >
+        </div>
+    </li>
+</ul>
+                        <span class="msg-design"></span>
+                        <span class="msg-border"></span>
+                    </fieldset>
+                   <div class="msg-detailBox">
+                        <h1 class="detailBox-title">豫园票价</h1>
+                        <p>旺季（每年4月1日至6月30日，9月1日至11月30日）</p>
+                        <span>【成人每位40元】</span>
+                        <p>淡季（每年7月1日至8月31日，12月1日至3月31日）</p>
+                        <span>【成人每位30元】</span>
+                        <h1 class="detailBox-title">优惠票</h1>
+                        <p>学生票：6周岁（不含）以上至18周岁（含）未成年人、全日制大学本科及以下学历学生凭本人身份证、学生证等有效证件实行半价优惠。</p>
+                        <p>老人票：60周岁（含）以上老人凭本人身份证等有效证件实行半价优惠。</p>
+						<p>优惠票每人每日限购一张。</p>
+                        <h1 class="detailBox-title">免票</h1>
+                        <p>1、身高1.3米（含）以下或6周岁（含）以下儿童（须有成人陪护，1名成人限带3名儿童；非团体）免票入园。</p>
+                        <p>2、残疾人、现役军人、残疾军人、烈士遗属、因公牺牲军人遗属、病故军人遗属、现役军人家属、消防救援人员（含消防救援院校学员）、在职公安民警凭有效证件登记验证后免票入园。</p>
+                     </div>
+                    <div class="msg-detailBox">
+                        <div class="msg-detailBox-list">
+                            <h1 class="detailBox-title">办公地址</h1>
+                            <p>上海市黄浦区安仁街218号</p>
+                        </div>
+                        <div class="msg-detailBox-list">
+                            <h1 class="detailBox-title">联系电话</h1>
+                            <p>021-63260830</p>
+                        </div>
+                        <div class="msg-detailBox-list">
+                            <h1 class="detailBox-title">邮政编码</h1>
+                            <p>200010</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="article-bottom">----------到底了哟 o(^▽^)o----------</div>
+    </div>
+    <a href="index.html" class="come-back-box">
+        <div class="come-back-wrap">
+            <p>返回</p>
+        </div>
+    </a>
+    <script src="js/swiper.min.js"></script>
+    <script>
+        var swiper = new Swiper('.swiper-container', {
+            slidesPerView: 3,
+            // spaceBetween: 30,
+            navigation: {
+                nextEl: '.swiper-button-next',
+                prevEl: '.swiper-button-prev',
+            },
+
+
+        });
+        $(".swiper-container .swiper-slide").click(function () {
+            $(this).addClass("active").siblings().removeClass("active");
+            // 2024.7.2
+            switch ($(this).index()) {
+                case 0:
+                $(".message-imgBox").html(`<div class="treaty-box">
+                        <div  class="msg-gaine">
+                            <fieldset class="msg-wrap">
+                                <legend>游览须知</legend>
+                                     <p class="msg-txt">豫园是全国重点文物保护单位、国家AAAA级旅游景区，为营造安全有序、优美和谐的游园环境，让每位游客获得更好的参观体验，请您仔细阅读并知悉下述游园须知：</p>
+                                  <span class="msg-design"></span>
+                                <span class="msg-border"></span>
+                            </fieldset>
+                        </div>
+                        <div class="msg-para">
+                            <img src="images/message/msg-border.png" alt="">
+                            <b>1</b>
+                            <p>请在豫园官方销售渠道购票，避免不必要的经济损失。</p>
+                        </div>
+                        <div class="msg-para">
+                            <img src="images/message/msg-border.png" alt="">
+                            <b>2</b>
+                            <p>请主动出示优惠票相关证件，配合园方售、检票工作。</p>
+                        </div>
+                        <div class="msg-para">
+                            <img src="images/message/msg-border.png" alt="">
+                            <b>3</b>
+                            <p>请遵守豫园开闭园时间，合理安排您的游览行程，配合园方闭园清场工作。</p>
+                        </div>
+                        <div class="msg-para">
+                            <img src="images/message/msg-border.png" alt="">
+                            <b>4</b>
+                            <p>禁止携带下列物品入园：危险品（枪支弹药、易燃易爆品、管制刀具、化学制剂等）；宠物（符合规定的导盲犬除外）。</p>
+                        </div>
+                        <div class="msg-para">
+                            <img src="images/message/msg-border.png" alt="">
+                            <b>5</b>
+                           <p>禁止在园内进行下列不安全、不文明行为和违法违规行为：吸烟（含电子烟）、饮酒、使用明火、升放无人机、攀爬古建假山、翻越围栏、进入危险及非开放区域、损坏文物、破坏展品、涂写刻画、毁坏景观、损害古树名木、攀摘花果、乱丢杂物、悬拉横幅、散发广告、非法集会等。</p>
+                        </div>
+                        <div class="msg-para">
+                            <img src="images/message/msg-border.png" alt="">
+                            <b>6</b>
+                           <p>摄影（像）规定：园内谢绝拍摄婚纱、写真或开展其他盈利性拍摄活动，请勿使用大型摄像机、闪光灯、反光板等器材或长时间占用游览空间，未经相关部门批准，禁止在园内进行视听作品与录像制品等的拍摄和宣传推广活动。</p>
+                        </div>
+                        <div class="msg-para">
+                            <img src="images/message/msg-border.png" alt="">
+                            <b>7</b>
+                            <p>为保障豫园正常开放运营，任何组织或个人，未经豫园官方备案许可，不得在园内擅自实施设摊、卖艺、兜售、营销宣传、问卷调查、测量测绘、规模写生等行为。</p>
+                        </div>
+                        <div class="msg-para">
+                            <img src="images/message/msg-border.png" alt="">
+                            <b>8</b>
+                           <p>园内生态环境较好，偶有野生小动物出没，禁止追捉、触碰，建议绕行避让，避免发生人身意外伤害事故。</p>
+                        </div>
+                        <div class="msg-para">
+                            <img src="images/message/msg-border.png" alt="">
+                            <b>9</b>
+                           <p>古典园林内步道不平，台阶、石桥、坡道、池塘、假山、山洞、低矮树杈、苔藓等区域较多，请留意园内各处的安全警示标牌，随时注意游览安全，小心磕碰及落水。建议老、弱、病、残、孕、未成年人、醉酒等游客，在监护人或其他陪同人员陪护下入园参观。</p>
+                        </div>
+                        <div class="msg-para">
+                            <img src="images/message/msg-border.png" alt="">
+                            <b>10</b>
+                            <p>雨雪天气时，园内步道非常湿滑，避免滑倒受伤；强风、雷暴等恶劣天气时，不要在树下或屋檐下停留，避免坠物或雷击伤害。</p>
+                        </div>
+                        <div class="msg-para">
+                            <img src="images/message/msg-border.png" alt="">
+                            <b>11</b>
+                            <p>豫园适合步行参观，如确需使用儿童推车或轮椅，请随时注意使用安全。如遇到园内古建筑修缮、园艺养护、部分景点临时封闭时，请根据园方指示的安全通道行走。</p>
+                        </div>
+                        <div class="msg-para">
+                            <img src="images/message/msg-border.png" alt="">
+                            <b>12</b>
+                            <p>因条件限制，园方暂时无法提供行李寄存服务，请妥善保管好随身物品，避免财物损失。</p>
+                        </div>
+                        <div class="msg-para">
+                            <img src="images/message/msg-border.png" alt="">
+                            <b>13</b>
+                            <p>由于游客、导游违反游览须知的安全提示或因自身原因、过失所引起的安全事故，园区恕不负责，给园区造成损害的，我园有权根据相关规定要求其赔偿并追究其法律责任，涉及违法犯罪的，我园将联系相关部门进行处理。</p>
+                        </div>
+                        <div class="msg-para">
+                            <img src="images/message/msg-border.png" alt="">
+                            <b>14</b>
+                            <p>如遇各类突发事件或紧急情况，可就近寻求园方工作人员帮助。咨询电话：021-63260830</p>
+                        </div>
+                        <div class="msg-para">
+                            <h3>以上内容由上海豫园管理处负责解释。感谢您的理解与配合，祝您游园愉快！</h3>
+                        </div>
+                        <div class="msg-para">
+                            <div class="msg-box">
+                                <h4>上海豫园管理处</h4>
+                            </div>
+                        </div>
+                    </div>`);
+                break;
+                case 1:
+                    $(".message-imgBox").html(`<div class="treaty-box">
+                <!--2020.12.25-->
+                <div class="msg-gaine">
+                    <fieldset class="msg-wrap">
+                        <legend>参观信息</legend>
+                        <p class="msg-remark"></p>
+                        <ul class="msg-list">
+                            <li>
+                                <h5 class="msg-list-title">购票途径：</h5>
+                                <div class="msg-list-detail">
+                                    <p>豫园提供线上线下购票服务，线下豫园南北门均设有售票窗口，线上在“上海豫园”官方小程序购票。</p>
+                                </div>
+                            </li>
+                            <li>
+                                <h5 class="msg-list-title">开放时间：</h5>
+                                <div class="msg-list-detail">
+                                    <p>9:00—16:30</p>
+                                    <p style="line-height: 1.2;margin-bottom: .14rem;">(16:00停止入园，16:30闭园)</p>
+                                    <p>每周一闭园（国家法定节假日除外，春节期间开放时间以公告时间为准）</p>
+                                </div>
+                            </li>
+                            <li>
+                                <h5 class="msg-list-title">游览入口：</h5>
+                                <div class="msg-list-detail">
+                                    <p>1、豫园北门：上海市黄浦区福佑路168号（团队、散客入口）</p>
+                                    <p>2、豫园南门：上海市黄浦区豫园老街279号（九曲桥下桥口处，仅散客入口）</p>
+                                </div>
+                            </li>
+                        </ul>
+                        <span class="msg-design"></span>
+                        <span class="msg-border"></span>
+                    </fieldset>
+                    <div class="msg-detailBox">
+                        <h1 class="detailBox-title">豫园票价</h1>
+                        <p>旺季（每年4月1日至6月30日，9月1日至11月30日）</p>
+                        <span>【成人每位40元】</span>
+                        <p>淡季（每年7月1日至8月31日，12月1日至3月31日）</p>
+                        <span>【成人每位30元】</span>
+                        <h1 class="detailBox-title">优惠票</h1>
+                        <p>学生票：6周岁（不含）以上至18周岁（含）未成年人、全日制大学本科及以下学历学生凭本人身份证、学生证等有效证件实行半价优惠。</p>
+                        <p>老人票：60周岁（含）以上老人凭本人身份证等有效证件实行半价优惠。</p>
+                        <h1 class="detailBox-title">免票</h1>
+                        <p>1、身高1.3米（含）以下或6周岁（含）以下儿童（须有成人陪护，1名成人限带3名儿童；非团体）免票入园。</p>
+                        <p>2、残疾人、现役军人、残疾军人、烈士遗属、因公牺牲军人遗属、病故军人遗属、现役军人家属、消防救援人员（含消防救援院校学员）凭有效证件登记验证后免票入园。</p>
+                    </div>
+                    <div class="msg-detailBox">
+                        <div class="msg-detailBox-list">
+                            <h1 class="detailBox-title">办公地址</h1>
+                            <p>上海市黄浦区安仁街218号</p>
+                        </div>
+                        <div class="msg-detailBox-list">
+                            <h1 class="detailBox-title">联系电话</h1>
+                            <p>021-63260830</p>
+                        </div>
+                        <div class="msg-detailBox-list">
+                            <h1 class="detailBox-title">邮政编码</h1>
+                            <p>200010</p>
+                        </div>
+                    </div>
+                </div>
+            </div>`);
+                    break;
+                case 2:
+                    $(".message-imgBox").html(`<div class="treaty-box" style="margin-bottom: .5rem;">
+        <div  class="msg-gaine">
+            <fieldset class="msg-wrap">
+                        <legend>交通信息</legend>
+                        <p class="msg-txt2">地铁10号线、14号线(豫园站)，公交11路、26路、64路、736路、926路、929路、932路、969路、980路、方川线等均可到达。</p>
+                        <h5 class="msg-field-title color-brown">温馨提示:</h5>
+                        <p class="msg-txt2 color-brown">豫园没有专用景区停车场，您可搭乘公共交通或酌情选择景区周边社会付费停车场。</p>
+                        <span class="msg-design"></span>
+                        <span class="msg-border"></span>
+                    </fieldset>
+        </div>
+    </div>`);
+                    break;
+                case 3:
+                    $(".message-imgBox").html(`<div class="treaty-box" style="margin-bottom: .5rem;">
+        <div  class="msg-gaine">
+                <fieldset class="msg-wrap">
+                    <legend>设施信息</legend>
+                    <img src="images/message/facilities-bg.jpg" alt="">
+                    <span class="msg-design"></span>
+                    <span class="msg-border"></span>
+                </fieldset>
+
+        </div>
+    </div>`);
+                    break;
+                default:
+                    $(".message-imgBox").html(`<div class="treaty-box">
+        <div  class="msg-gaine">
+             <fieldset class="msg-wrap">
+                        <legend>文明公约</legend>
+                        <p class="msg-txt2">做文明游客是我们大家的义务，让我们共同遵守《中国公民国内旅游文明行为公约》 ：</p>
+                        <span class="msg-design"></span>
+                        <span class="msg-border"></span>
+                    </fieldset>
+        </div>
+        <!--list-->
+        <div class="msg-para">
+            <img src="images/message/msg-border.png" alt="">
+            <b>1</b>
+            <p>维护环境卫生。不随地吐痰和口香糖，不乱扔废弃物，不在禁烟场所吸烟。</p>
+        </div>
+        <div class="msg-para">
+            <img src="images/message/msg-border.png" alt="">
+            <b>2</b>
+            <p>遵守公共秩序。不喧哗吵闹，排队遵守秩序，不并行挡道，不在公众场所高声交谈。</p>
+        </div>
+        <div class="msg-para">
+            <img src="images/message/msg-border.png" alt="">
+            <b>3</b>
+            <p>保护生态环境。不踩踏绿地，不摘折花木和果实，不追捉、投打、乱喂动物。</p>
+        </div>
+        <div class="msg-para">
+            <img src="images/message/msg-border.png" alt="">
+            <b>4</b>
+            <p>保护文物古迹。不在文物古迹上涂刻，不攀爬触摸文物，拍照摄像遵守规定。</p>
+        </div>
+        <div class="msg-para">
+            <img src="images/message/msg-border.png" alt="">
+            <b>5</b>
+            <p>爱惜公共设施。不污损客房用品，不损坏公用设施，不贪占小便宜，节约用水用电，用餐不浪费。</p>
+        </div>
+        <div class="msg-para">
+            <img src="images/message/msg-border.png" alt="">
+            <b>6</b>
+            <p>尊重别人权利。不强行和外宾合影，不对着别人打喷嚏，不长期占用公共设施，尊重服务人员的劳动，尊重各民族宗教习俗。</p>
+        </div>
+        <div class="msg-para">
+            <img src="images/message/msg-border.png" alt="">
+            <b>7</b>
+            <p>讲究以礼待人。衣着整洁得体，不在公共场所袒胸赤膊；礼让老幼病残，礼让女士；不讲粗话。</p>
+        </div>
+        <div class="msg-para">
+            <img src="images/message/msg-border.png" alt="">
+            <b>8</b>
+            <p>提倡健康娱乐。抵制封建迷信活动，拒绝黄、赌、毒。</p>
+        </div>
+        <div class="msg-para">
+            <div class="msg-box">
+                <h4>中央文明办</h4>
+                <h4>中华人民共和国文化和旅游部</h4>
+            </div>
+        </div>
+    </div>`);
+            } 
+        })
+    </script>
+</div>
+</body>
+</html>

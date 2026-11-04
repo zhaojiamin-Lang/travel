@@ -18,7 +18,8 @@ service  业务：需求槽位、选点排程、校验预算、账号、导游�
 repo / domain            ai（千问/OpenAI 兼容）   weather（高德天气，定时轮询）
         │
         ▼
-H2（默认，文件库）或 PostgreSQL（profile=postgres）   ◄── replan（事件驱动重排，独立旁路）
+PostgreSQL（默认业务库，Flyway）   ◄── replan（事件驱动重排，独立旁路）
+测试：H2（仅 test scope）
 ```
 
 依赖方向只允许 **web → service → repo/domain**，以及 service → ai/weather。
@@ -83,10 +84,9 @@ HTTP 接口层，负责 REST Controller、请求响应模型、参数验证和�
 
 | 路径 | 功能 |
 | --- | --- |
-| `resources/application.yml` | 默认 H2 文件库、端口 8080、Session 30 天 |
-| `resources/application-postgres.yml` | PostgreSQL profile（配合 `docker-compose.yml`） |
+| `resources/application.yml` | 默认 PostgreSQL、Flyway、端口 8080、Session 30 天 |
 | `resources/data/pois.json` | 上海 POI 种子数据，启动时灌库（库非空则跳过） |
-| `resources/db/migration` | PostgreSQL 建表脚本（V1 初始表、V2 重排事件） |
+| `resources/db/migration/postgres` | PostgreSQL 建表与版本迁移脚本 |
 
 ## 前端
 

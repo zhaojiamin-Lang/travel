@@ -1,0 +1,958 @@
+
+
+<!DOCTYPE html>
+<html>
+<head>
+    
+
+
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<base href="/mu/">
+<title>上海博物馆</title>
+
+<link rel="icon" href="site/img/favicon.ico">
+<link href="site2/cdn/normalize/8.0.1/normalize.min.css" type="text/css" rel="stylesheet" />
+<link href="site2/cdn/hint.css/2.7.0/hint.min.css" type="text/css" rel="stylesheet" />
+
+<!-- museum-icon library -->
+<link rel="stylesheet" href="site2/iconfont/font_4234991_8ps0vjd9fxu/iconfont.css">
+<!-- museum-char-icon library -->
+<link rel="stylesheet" href="site2/iconfont/font_4243180_1u3k9y3kwal/iconfont.css">
+<!-- museum-timeline library -->
+<link rel="stylesheet" href="site2/iconfont/font_4874642_gi9lcx03si6/iconfont.css">
+
+<link rel="stylesheet" href="site2/css/public-font.css">
+<link rel="stylesheet" href="site2/css/public.css">
+<link rel="stylesheet" href="site2/css/old.css">
+
+<script src="site2/cdn/cash/8.1.5/cash.min.js" type="application/javascript"></script>
+    
+
+<link rel="stylesheet" href="site2/lib/luxbar.min.css">
+<link href="site2/cdn/tippy.js/6.3.7/tippy.min.css" type="text/css" rel="stylesheet" />
+<link href="site2/cdn/tippy.js/6.3.7/themes/light.min.css" type="text/css" rel="stylesheet" />
+<link href="site2/cdn/toastify-js/1.12.0/toastify.min.css" type="text/css" rel="stylesheet" />
+<link rel="stylesheet" href="site2/lib/swiper/swiper-bundle.min.css">
+<link rel="stylesheet" href="site2/lib/fancybox/fancybox.min.css">
+<link rel="stylesheet" href="site2/cdn/simplebar/6.3.2/simplebar.min.css">
+<link rel="stylesheet" href="site2/cdn/overlayscrollbars/2.11.4/styles/overlayscrollbars.min.css">
+<link rel="stylesheet" href="site2/lib/tagger/tagger.min.css">
+<link rel="stylesheet" href="site2/css/luxbar.css">
+<link rel="stylesheet" href="site2/css/headroom.css">
+<link rel="stylesheet" href="site2/css/tippy.css">
+<link rel="stylesheet" href="site2/css/fancybox.css">
+<link rel="stylesheet" href="site2/css/top.css">
+<link rel="stylesheet" href="site2/css/banner.css">
+<link rel="stylesheet" href="site2/css/bottom.css">
+<link rel="stylesheet" href="site2/lib/mailchimp/classic-061523.css">
+<link rel="stylesheet" href="site2/css/newsletter.css">
+
+<link rel="stylesheet" href="site2/cdn/spin.js/spin.css">
+<script src="site2/cdn/spin.js/spin.umd.js"></script>
+
+<script src="site2/cdn/gsap/3.13.0/gsap.min.js" type="application/javascript"></script>
+<script src="site2/cdn/gsap/3.13.0/ScrollToPlugin.min.js" type="application/javascript"></script>
+<script src="site2/cdn/gsap/3.13.0/MotionPathPlugin.min.js" type="application/javascript"></script>
+<script src="site2/cdn/gsap/3.13.0/ScrollTrigger.min.js" type="application/javascript"></script>
+
+<script src="site2/cdn/URI.js/1.19.11/URI.min.js" type="application/javascript"></script>
+<script src="site2/cdn/holder/2.9.8/holder.min.js" type="application/javascript"></script>
+<script src="site2/cdn/handlebars.js/4.7.8/handlebars.min.js" type="application/javascript"></script>
+<script src="site2/cdn/axios/1.11.0/axios.min.js"></script>
+<script src="site2/cdn/infinite-ajax-scroll/3.1.0/infinite-ajax-scroll.min.js"></script>
+<script src="site2/cdn/jquery.imagesloaded/5.0.0/imagesloaded.pkgd.min.js" type="application/javascript"></script>
+<script src="site2/cdn/masonry/4.2.2/masonry.pkgd.min.js" type="application/javascript"></script>
+
+<script src="site2/cdn/popper.js/2.11.8/umd/popper.min.js" type="application/javascript"></script>
+<script src="site2/cdn/tippy.js/6.3.7/tippy.umd.min.js" type="application/javascript"></script>
+<script src="site2/cdn/toastify-js/1.12.0/toastify.min.js" type="application/javascript"></script>
+
+<script src="site2/lib/swiper/swiper-bundle.min.js"></script>
+<script src="site2/lib/fancybox/fancybox.umd.min.js"></script>
+<script src="site2/lib/fancybox/zh_CN.umd.min.js"></script>
+<script src="site2/cdn/simplebar/6.3.2/simplebar.min.js"></script>
+<script src="site2/cdn/overlayscrollbars/2.11.4/browser/overlayscrollbars.browser.es6.min.js"></script>
+<script src="site2/cdn/headroom/0.12.0/headroom.min.js" type="application/javascript"></script>
+<script src="//res.wx.qq.com/open/js/jweixin-1.6.0.js"></script>
+<script src="site/lib/validatorjs/validator.min.js"></script>
+<script src="site2/lib/svg-inject.min.js"></script>
+<script src="site2/lib/tagger/tagger.min.js"></script>
+<script src="site2/js/uri.js"></script>
+<script src="site2/js/handlebars.js"></script>
+<script src="site2/js/ajax.js"></script>
+<script src="site2/js/wechat.js"></script>
+<script src="site2/js/utils.js"></script>
+    
+
+<meta name="client-type" content="m">
+<style>
+    .site-panel-title {
+        font-size: 30px;
+    }
+
+    .site-button {
+        border-radius: 12px / 50%;
+        font-size: 14px;
+        letter-spacing: 1px;
+    }
+
+    .en .site-article p {
+        text-align: left;
+    }
+</style>
+    <style>
+        .site-panel-title {
+            color: var(--site-second-color);
+        }
+
+        .visit-content {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin: 20px 0;
+            line-height: 1.7;
+        }
+
+        .visit-content .title {
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .visit-content .site-list li {
+            margin-bottom: 5px;
+            text-align: justify;
+        }
+
+        .en .visit-content .site-list li {
+            text-align: left;
+        }
+
+        .visit-content .site-list li:last-child {
+            margin-bottom: 0;
+        }
+
+        .visit-content .decimal-list {
+            list-style-type: decimal;
+            padding-left: 30px;
+        }
+
+        .visit-content .disc-list {
+            list-style-type: disc;
+            padding-left: 20px;
+        }
+
+        .visit-content .guidelines {
+            margin: 10px 0;
+            text-align: justify;
+        }
+
+        .visit-content .guidelines:first-child {
+            margin-top: 0;
+        }
+
+        .visit-map {
+            margin: 20px 0;
+        }
+
+        .visit-map iframe {
+            position: fixed;
+            visibility: hidden;
+        }
+
+        .visit-map iframe.loaded {
+            position: static;
+            width: 100%;
+            height: 100%;
+            border: none;
+            visibility: visible;
+        }
+
+        .equipment {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin: 20px -28px;
+            background-color: #d8e4f2;
+        }
+
+        .equipment .pic {
+            display: none;
+            width: 100%;
+        }
+
+        .equipment .pic.active {
+            display: inline;
+        }
+
+        .equipment .floor-list {
+            display: flex;
+            justify-content: center;
+            padding-top: 15px;
+        }
+
+        .equipment .sign-list {
+            display: none;
+            grid-template-columns: repeat(3, 1fr);
+            grid-gap: 10px 5px;
+            padding: 0 15px 15px 15px;
+            font-size: 14px;
+        }
+
+        .en .equipment .sign-list {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .equipment .sign-list.active {
+            display: grid;
+        }
+
+        .equipment .sign-list img {
+            height: 1.6em;
+            vertical-align: middle;
+        }
+
+        .equipment .floor {
+            padding: 5px 20px;
+            font-size: 20px;
+        }
+
+        .ch .equipment .floor {
+            padding: 5px 10px;
+            font-size: 20px;
+        }
+
+        .equipment .floor.active {
+            background-color: #b2b2b2;
+            color: #fff;
+        }
+
+        .v1, .v2, .v3 {
+            display: none;
+        }
+    </style>
+</head>
+<body class="ch">
+    
+
+
+    <div id="full-text-search-box" class="mobile" style="display: none;" data-selectable>
+        <div class="site-dialog-content">
+            <div class="columns">
+                <div class="left">
+                    <input type="text" name="full-text-search-text" placeholder="请输入搜索内容" autocomplete="off">
+                </div>
+                <div class="button" onclick="fullTextSearchOnClick();">确定</div>
+            </div>
+        </div>
+    </div>
+    <div class="luxbar luxbar-static">
+        <input type="checkbox" id="luxbar-checkbox" class="luxbar-checkbox">
+        <div class="luxbar-menu luxbar-menu-light">
+            <ul class="luxbar-navigation">
+                <li class="luxbar-header">
+                    <a class="luxbar-brand" href="frontend/pg/m/index" title="首页">
+                        <img src="site2/svg/logo.svg" class="logo" onload="SVGInject(this);">
+                    </a>
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <!--
+                        <a href="frontend/pg/m/index?a11y=2" class="site-link" title="关怀版">关怀版</a>
+                        -->
+                        <a href="javascript:void(0);" onclick="adjustForMobileAria();aria.oldFixedStart();" class="site-link" title="关怀版">关怀版</a>
+                        <a id="language-button" href="javascript:void(0);" class="site-link">
+                            中文&nbsp;<span class="iconfont icon-caret-down" style="font-size: 0.8em;"></span>
+                        </a>
+                        <a href="javascript:void(0);" class="site-link" data-fancybox="full-text-search-box" data-src="#full-text-search-box" title="搜索">
+                            <span class="iconfont icon-magnifying-glass"></span>
+                        </a>
+                        <label for="luxbar-checkbox" class="luxbar-hamburger luxbar-hamburger-spin" onclick="$('body').toggleClass('luxbar-hide-scrollbar');">
+                            <span></span>
+                        </label>
+                    </div>
+                </li>
+                <li class="luxbar-item dropdown">
+                    <a href="javascript:void(0);" title="到访" onclick="javascript:luxbarMenuClick(this);">到访</a>
+                    <ul>
+                        <li class="luxbar-item">
+                            <a href="frontend/pg/m/service/visit-east" title="东馆">东馆</a>
+                        </li>
+                        <li class="luxbar-item">
+                            <a href="frontend/pg/m/service/visit-west" title="人民广场馆">人民广场馆</a>
+                        </li>
+                    </ul>
+                    <a class="site-link arrow" onclick="javascript:luxbarMenuClick(this);">
+                        <span class="iconfont icon-angle-down"></span>
+                    </a>
+                </li>
+                <li class="luxbar-item dropdown">
+                    <a href="javascript:void(0);" onclick="javascript:luxbarMenuClick(this);">参观与活动</a>
+                    <ul>
+                        <li class="luxbar-item">
+                            <a href="frontend/pg/m/display/gallery-east">
+                                常设展览
+                                <span class="iconfont icon-pipe"></span>
+                                东馆
+                            </a>
+                        </li>
+                        <li class="luxbar-item">
+                            <a href="frontend/pg/m/display/gallery-west">
+                                常设展览
+                                <span class="iconfont icon-pipe"></span>
+                                人民广场馆
+                            </a>
+                        </li>
+                        <li class="luxbar-item">
+                            <a href="frontend/pg/m/interact/interact">
+                                互动体验
+                                <span class="iconfont icon-pipe"></span>
+                                东馆
+                            </a>
+                        </li>
+                        <li class="luxbar-item">
+                            <a href="frontend/pg/m/display/offline-exhibit">特别展览</a>
+                        </li>
+                        <li class="luxbar-item">
+                            <a href="frontend/pg/m/infomation/activity-code">教育活动</a>
+                        </li>
+                        <li class="luxbar-item">
+                            <a href="frontend/pg/m/service/guide">人工讲解</a>
+                        </li>
+                        <li class="luxbar-item">
+                            <a href="frontend/pg/m/infomation/team-reservation">团队预约</a>
+                        </li>
+                    </ul>
+                    <a class="site-link arrow" onclick="javascript:luxbarMenuClick(this);">
+                        <span class="iconfont icon-angle-down"></span>
+                    </a>
+                </li>
+                <li class="luxbar-item dropdown">
+                    <a href="javascript:void(0);" title="信息" onclick="javascript:luxbarMenuClick(this);">信息</a>
+                    <ul>
+                        <li class="luxbar-item">
+                            <a href="frontend/pg/m/infomation/news?type=all" title="新闻与公告">新闻与公告</a>
+                        </li>
+                        <li class="luxbar-item">
+                            <a href="frontend/pg/m/infomation/about" title="信息公开">信息公开</a>
+                        </li>
+                        <li class="luxbar-item">
+                            <a href="frontend/pg/m/infomation/privacy" title="隐私条款">隐私条款</a>
+                        </li>
+                        <li class="luxbar-item">
+                            <a href="frontend/pg/m/infomation/download-claim" title="版权声明">版权声明</a>
+                        </li>
+                    </ul>
+                    <a class="site-link arrow" onclick="javascript:luxbarMenuClick(this);">
+                        <span class="iconfont icon-angle-down"></span>
+                    </a>
+                </li>
+                <li class="luxbar-item dropdown">
+                    <a href="javascript:void(0);" onclick="javascript:luxbarMenuClick(this);">典藏</a>
+                    <ul>
+                        <li class="luxbar-item">
+                            <a href="frontend/pg/m/lib/index">数字文物库</a>
+                        </li>
+                        <li class="luxbar-item">
+                            <a href="frontend/pg/m/collection/antique">典藏精选</a>
+                        </li>
+                        <li class="luxbar-item">
+                            <a href="frontend/pg/m/infomation/three-object">三维藏品</a>
+                        </li>
+                        <li class="luxbar-item">
+                            <a href="frontend/pg/m/infomation/ar">AR藏品</a>
+                        </li>
+                    </ul>
+                    <a class="site-link arrow" onclick="javascript:luxbarMenuClick(this);">
+                        <span class="iconfont icon-angle-down"></span>
+                    </a>
+                </li>
+                <li class="luxbar-item dropdown">
+                    <a href="javascript:void(0);" onclick="javascript:luxbarMenuClick(this);">专题</a>
+                    <ul>
+                        <li class="luxbar-item">
+                            <a href="frontend/pg/m/display/online-exhibit">网展</a>
+                        </li>
+                        <li class="luxbar-item">
+                            <a href="frontend/pg/m/infomation/museum-video?type=exhibition">视频</a>
+                        </li>
+                        <li class="luxbar-item">
+                            <a href="frontend/pg/m/infomation/three-dimensions?type=special">全景展厅</a>
+                        </li>
+                        <li class="luxbar-item">
+                            <a href="frontend/pg/m/infomation/classic-object">经典回眸</a>
+                        </li>
+                    </ul>
+                    <a class="site-link arrow" onclick="javascript:luxbarMenuClick(this);">
+                        <span class="iconfont icon-angle-down"></span>
+                    </a>
+                </li>
+                <li class="luxbar-item dropdown">
+                    <a href="javascript:void(0);" onclick="javascript:luxbarMenuClick(this);">数创</a>
+                    <ul>
+                        <li class="luxbar-item">
+                            <a href="frontend/pg/m/infomation/poster">海报</a>
+                        </li>
+                        <li class="luxbar-item">
+                            <a href="frontend/pg/m/infomation/desktop">桌面</a>
+                        </li>
+                        <li class="luxbar-item">
+                            <a href="frontend/pg/m/infomation/manual">手册</a>
+                        </li>
+                    </ul>
+                    <a class="site-link arrow" onclick="javascript:luxbarMenuClick(this);">
+                        <span class="iconfont icon-angle-down"></span>
+                    </a>
+                </li>
+                <li class="luxbar-item dropdown">
+                    <a href="javascript:void(0);" onclick="javascript:luxbarMenuClick(this);">研究</a>
+                    <ul>
+                        <li class="luxbar-item">
+                            <a href="frontend/pg/m/research/museum-research?researchTypeCode=JOURNAL">馆刊</a>
+                        </li>
+                        <li class="luxbar-item">
+                            <a href="frontend/pg/m/research/museum-research?researchTypeCode=WENBO">上海文博</a>
+                        </li>
+                        <li class="luxbar-item">
+                            <a href="frontend/pg/m/research/museum-research?researchTypeCode=CATALOG">图录</a>
+                        </li>
+                    </ul>
+                    <a class="site-link arrow" onclick="javascript:luxbarMenuClick(this);">
+                        <span class="iconfont icon-angle-down"></span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+    <div class="luxbar-backdrop"></div>
+
+
+<script>
+    new Headroom(document.querySelector('.luxbar'), {}).init();
+
+    const luxbarMenuClick = function(target) {
+        const parent = $(target).parent();
+        const arrow = parent.find('.arrow');
+        arrow.toggleClass('arrow-down');
+        arrow.siblings('ul').toggleClass('expanded');
+    };
+
+    Fancybox.bind('[data-fancybox="full-text-search-box"]', {
+        mainClass: 'site-dialog-container-transparent',
+        compact: false,
+        closeButton: false,
+        l10n: Fancybox.l10n.zh_CN,
+        on: {
+            reveal: function() {
+                document.querySelector('#full-text-search-box input[name="full-text-search-text"]').value = '';
+            }
+        }
+    });
+    const fullTextSearchOnClick = function() {
+        const value = document.querySelector('#full-text-search-box input[name="full-text-search-text"]').value;
+        location.href = 'frontend/pg/m/infomation/full-text-search?searchText=' + value;
+    };
+    const fullTextSearchOnClickEn = function() {
+        const value = document.querySelector('#full-text-search-box input[name="full-text-search-text"]').value;
+        location.href = 'frontend/pg/m/en/infomation/full-text-search?searchText=' + value;
+    };
+
+    tippy('#language-button', {
+        theme: 'm-lang',
+        appendTo: document.body,
+        content: '<ul class="site-list"><li><a href="frontend/pg/m/index" class="site-link">中文</a></li><li><a href="frontend/pg/m/en/index" class="site-link">English</a></li></ul>',
+        allowHTML: true,
+        interactive: true,
+        trigger: 'click',
+        offset: [0, 30]
+    });
+</script>
+    
+
+<div class="site-m-banner ">
+    <img src="site2/img/banner-bg1.png">
+    <img src="site2/img/banner-bg2.png">
+    <img src="site2/img/banner-bg3.png">
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+        <div class="title">
+            到访
+            <span style="font-size: 0.6em;">
+                <span class="iconfont icon-pipe"></span>
+                人民广场馆
+            </span><br class="visit-newline-a11y">
+            <a href="frontend/pg/m/service/visit-east" class="site-link site-button site-button-secondary" title="前往东馆">前往东馆</a>
+        </div>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+</div>
+<script>
+    gsap.from('.site-m-banner > img', {
+        opacity: 0,
+        xPercent: -50,
+        duration: 1.5,
+        ease: 'power1.out',
+        stagger: 0.2
+    });
+</script>
+    <ul class="site-list site-section-nav site-m-section-nav">
+        <li><a href="javascript:sectionScrollTo('.open-title');" class="site-link" title="开放信息">开放信息</a></li>
+        <li><a href="javascript:sectionScrollTo('.location-title');" class="site-link" title="周边信息">周边信息</a></li>
+        <li><a href="javascript:sectionScrollTo('.equipment-title');" class="site-link" title="服务设施">服务设施</a></li>
+        <li><a href="javascript:sectionScrollTo('.service-title');" class="site-link" title="服务项目">服务项目</a></li>
+    </ul>
+    <div class="site-panel site-m-panel">
+        
+        
+            <div class="site-panel-title open-title">开放信息</div>
+            <div class="visit-content">
+                <div class="title">开放时间：</div>
+                <ul class="site-list">
+                    <li>9:00-17:00，15:00后停止入场。除国定节假日外，周一闭馆</li>
+                </ul>
+            </div>
+            <div class="visit-content">
+                <div class="title">场馆入口：</div>
+                <ul class="site-list">
+                    <li>上海市人民大道201号（从武胜路南门入馆）</li>
+                </ul>
+            </div>
+            <div class="visit-content">
+                <div class="title">参观须知：</div>
+                <div class="guidelines">“世界树之巅：美洲古代文明大展”期间（2026.7.9-2027.11.14）上海博物馆人民广场馆将不再展出其他展览，常设展及其他特展可前往上海博物馆东馆参观（地址：上海市浦东新区世纪大道1952号）。</div>
+                <div class="guidelines">为了您有更好的观展体验，请在参观之前仔细阅读本须知：</div>
+                <ul class="site-list decimal-list">
+                    <li>
+                        开放时间（除国定假日外）<br>
+                        日场：9:00-17:00（15:00停止入场）；每周一闭馆（除国定假日外）<br>
+                        日场连夜场：9:00-21:00（19:00停止入场）；每周一闭馆（除国定假日外）<br>
+                        ★夜场、专场安排及相关开放时间调整信息，敬请关注上海博物馆官方公众号发布的相关内容。
+                    </li>
+                    <li>散客参观可提前通过上海博物馆官方微信小程序、境外观众可通过trip.com（携程国际版）进行预约购票后，持有效证件原件，从南门散客通道核验后入馆。</li>
+                    <div class="v1-btn" style="text-align: center; line-height: 1.15; margin-top: 10px; margin-left: -20px; font-size: 24px;">
+                        <a href="javascript:$('.v1-btn').hide();$('.v1').removeClass('v1');" class="site-link" title="展开">
+                            <span class="iconfont icon-angle-down"></span>
+                        </a>
+                    </div>
+                    <li class="v1">凡20人及以上（含20人）团队前来参观，须提前7天（不含当天）进行电话预约。本馆团队参观实行每日限额管理，预约名额有限，约满即止，不接受无预约临时团队入馆参观。人民广场馆预约电话：021-63724550（请在开放时间内拨打）。所有成功预约的团队，须按本馆要求备齐入馆材料。当日入馆必备材料包括：当日有效参观预约编号、全体参观人员携带有效身份证件原件（以备查验）、团队人员信息名单原件（加盖单位公章）、团队参观介绍信原件（加盖单位公章），材料不全、彩色复印、实到人数未满20人或不符合要求者不予入馆。进馆入口：人民广场馆统一由南门西侧预约团队通道入馆并办理购票手续，学生团体参观现场需签署《学生团队参观安全责任书》。</li>
+                    <li class="v1">65周岁（含）以上老人、现役军人、退休（役）军人、革命烈士遗属、综合性消防救援人员以及公安民警出示本人有效证件及当日购票凭证可从南门绿色通道过安检后入馆，该权益仅限进入场馆，不含展厅及其他项目；残障人士凭本人有效证件可免票入馆。</li>
+                    <li class="v1">馆内1F、2F、4F均设餐饮区域，有餐饮需要观众可按需前往。请勿在展厅、走廊、大堂、商店等区域饮食。</li>
+                    <li class="v1">为保证人员安全和参观体验，当馆内参观人数超过最大日承载量或瞬时承载量时，我馆将启动限流措施，敬请谅解。如遇入场观众较多，请排队耐心等候。</li>
+                    <li class="v1">任何机构或个人在展厅内组织讲解活动需报本馆审批。</li>
+                    <li class="v1">如有疑问请拨打咨询电话021-60226699。</li>
+                </ul>
+                <div class="v1 guidelines">其他注意事项：</div>
+                <ul class="v1 site-list decimal-list">
+                    <li>勿触摸文物展品。</li>
+                    <li>勿在馆内奔跑、大声喧哗。</li>
+                    <li>下列人员谢绝入馆：（1）酗酒者；（2）衣冠不整者；（3）无民事行为能力且无监护人陪同者；（4）携带宠物者。</li>
+                    <li>勿在馆内推销商品、散发广告。</li>
+                    <li>勿在展厅内使用各类水性笔和水溶性材料。</li>
+                    <li>勿有妨碍其他观众参观的行为，包括且不限于临摹或写生时在展厅架设画架等行为。</li>
+                    <li>馆内勿使用闪光灯、自拍杆和支架类摄影器材拍照。在我馆与其他博物馆合作举办的展览以及特色商品店，如有版权协议，不允许观众拍照展品的，请注意警示标志并服从展厅工作人员的管理。</li>
+                    <li>未经允许，勿在馆内进行个人直播或录播活动。</li>
+                    <li>勿有其它影响公共安全和公共秩序的行为。</li>
+                </ul>
+                <div class="v1 guidelines">本须知自2026年6月30日开始实行。对违反相关规定、扰乱参观秩序的行为，本馆有权予以劝阻、制止；劝阻、制止无效的，可以拒绝提供服务。构成违反治安管理行为的，交由公安机关处理。</div>
+            </div>
+            <div class="visit-content" style="flex-direction: row;">
+                <div class="title">讲解报备</div>
+                <div>
+                    <a href="frontend/pg/m/article/id/I00004375" class="site-link site-button site-button-default" style="line-height: 1.2; font-size: 15px;" title="阅读">阅读</a>
+                </div>
+            </div>
+        
+        
+        
+        
+        
+            <div class="site-panel-title location-title">周边信息</div>
+            <div style="margin: 20px 0; text-align: center;">
+                <a href="//ditu.amap.com/place/B001535BBC" target="_blank" class="site-link site-button site-button-default" style="font-size: 16px;" title="查看地图">查看地图</a>
+            </div>
+            <div class="visit-content">
+                <div class="title">人民广场馆：</div>
+                <ul class="site-list">
+                    <li>上海市黄浦区人民大道201号</li>
+                </ul>
+            </div>
+            <div class="visit-content">
+                <div class="title">地铁：</div>
+                <ul class="site-list decimal-list">
+                    <li>乘坐地铁一号线、二号线、八号线至人民广场站，由1号口出站。</li>
+                    <li>乘坐地铁十四号线至大世界站，由4号口出站。</li>
+                </ul>
+            </div>
+            <div class="visit-content">
+                <div class="title">公交：</div>
+                <ul class="site-list decimal-list">
+                    <li>乘坐123路/112路/112区间/46路公交车至人民广场站。</li>
+                    <li>乘坐51路/451路/隧道六线至人民广场（武胜路）站。</li>
+                    <li>乘坐454路至延安东路西藏中路站。</li>
+                    <li>乘坐108/108区间/167路/930路/980路/隧道三线至人民广场广东路站。</li>
+                    <li>乘坐71路/71区间至黄陂北路站。</li>
+                </ul>
+            </div>
+            <div class="v2-btn" style="text-align: center; line-height: 1.15; margin-top: 0; margin-bottom: 20px; font-size: 24px;">
+                <a href="javascript:$('.v2-btn').hide();$('.v2').removeClass('v2');" class="site-link" title="展开">
+                    <span class="iconfont icon-angle-down"></span>
+                </a>
+            </div>
+            <div class="visit-content v2">
+                <div class="title">周边：</div>
+                <ul class="site-list">
+                    <li>毗邻南京路、淮海路，与上海大剧院、上海城市规划馆、上海音乐厅等相邻。距离虹桥机场约15公里，浦东机场约40公里，上海火车站约3公里，虹桥火车站约17公里，上海南站约12公里</li>
+                </ul>
+            </div>
+            <div class="visit-content v2">
+                <div class="title">停车：</div>
+                <ul class="site-list">
+                    <li>
+                        人民广场地下停车场：10元/小时<br>
+                        武胜路地面停车场：10元/小时<br>
+                        以上仅限小型车辆
+                    </li>
+                </ul>
+            </div>
+        
+        
+        
+        <div class="site-panel-title equipment-title">服务设施</div>
+        <div class="equipment">
+            <ul class="site-list floor-list">
+                
+                <li class="floor floor1 active">
+                    <a href="javascript:equipmentSwitch('.floor1, .pic1, .sign-list1');" class="site-link" title="一楼">一楼</a>
+                </li>
+                <li class="floor floor2">
+                    <a href="javascript:equipmentSwitch('.floor2, .pic2, .sign-list2');" class="site-link" title="二楼">二楼</a>
+                </li>
+                <li class="floor floor3">
+                    <a href="javascript:equipmentSwitch('.floor3, .pic3, .sign-list3');" class="site-link" title="三楼">三楼</a>
+                </li>
+                <li class="floor floor4">
+                    <a href="javascript:equipmentSwitch('.floor4, .pic4, .sign-list4');" class="site-link" title="四楼">四楼</a>
+                </li>
+            </ul>
+            <div>
+                
+                
+                    <img src="site2/img/equipment-west1.png" class="pic pic1 active">
+                    <img src="site2/img/equipment-west2.png" class="pic pic2">
+                    <img src="site2/img/equipment-west3.png" class="pic pic3">
+                    <img src="site2/img/equipment-west4.png" class="pic pic4">
+                
+                
+                
+            </div>
+            
+            
+                <div>
+                    <ul class="site-list sign-list sign-list1 active">
+                        <li>
+                            <img src="site2/img/sign-west/01男卫生间.png">
+                            男卫生间
+                        </li>
+                        <li>
+                            <img src="site2/img/sign-west/02女卫生间.png">
+                            女卫生间
+                        </li>
+                        <li>
+                            <img src="site2/img/sign-west/03无障碍措施.png">
+                            无障碍措施
+                        </li>
+                        <li>
+                            <img src="site2/img/sign-west/04自动扶梯.png">
+                            自动扶梯
+                        </li>
+                        <li>
+                            <img src="site2/img/sign-west/05楼梯.png">
+                            楼梯
+                        </li>
+                        <li>
+                            <img src="site2/img/sign-west/06服务台.png">
+                            服务台
+                        </li>
+                        <li>
+                            <img src="site2/img/sign-west/07导览服务.png">
+                            导览服务
+                        </li>
+                        <li>
+                            <img src="site2/img/sign-west/08影视中心.png">
+                            影视中心
+                        </li>
+                        <li>
+                            <img src="site2/img/sign-west/09寄物处.png">
+                            寄物处
+                        </li>
+                        <li>
+                            <img src="site2/img/sign-west/10商店.png">
+                            商店
+                        </li>
+                        <li>
+                            <img src="site2/img/sign-west/11餐厅.png">
+                            餐厅
+                        </li>
+                    </ul>
+                    <ul class="site-list sign-list sign-list2">
+                        <li>
+                            <img src="site2/img/sign-west/01男卫生间.png">
+                            男卫生间
+                        </li>
+                        <li>
+                            <img src="site2/img/sign-west/02女卫生间.png">
+                            女卫生间
+                        </li>
+                        <li>
+                            <img src="site2/img/sign-west/04自动扶梯.png">
+                            自动扶梯
+                        </li>
+                        <li>
+                            <img src="site2/img/sign-west/05楼梯.png">
+                            楼梯
+                        </li>
+                        <li>
+                            <img src="site2/img/sign-west/12茶室.png">
+                            茶室
+                        </li>
+                    </ul>
+                    <ul class="site-list sign-list sign-list3">
+                        <li>
+                            <img src="site2/img/sign-west/01男卫生间.png">
+                            男卫生间
+                        </li>
+                        <li>
+                            <img src="site2/img/sign-west/02女卫生间.png">
+                            女卫生间
+                        </li>
+                        <li>
+                            <img src="site2/img/sign-west/04自动扶梯.png">
+                            自动扶梯
+                        </li>
+                        <li>
+                            <img src="site2/img/sign-west/05楼梯.png">
+                            楼梯
+                        </li>
+                    </ul>
+                    <ul class="site-list sign-list sign-list4">
+                        <li>
+                            <img src="site2/img/sign-west/01男卫生间.png">
+                            男卫生间
+                        </li>
+                        <li>
+                            <img src="site2/img/sign-west/02女卫生间.png">
+                            女卫生间
+                        </li>
+                        <li>
+                            <img src="site2/img/sign-west/04自动扶梯.png">
+                            自动扶梯
+                        </li>
+                        <li>
+                            <img src="site2/img/sign-west/05楼梯.png">
+                            楼梯
+                        </li>
+                    </ul>
+                </div>
+            
+            
+            
+        </div>
+        
+        
+            <div class="site-panel-title service-title">服务项目</div>
+            <div class="visit-content">
+                <div class="title">寄物：</div>
+                <ul class="site-list disc-list">
+                    <li>衣帽及大件行李可予寄放（贵重物品除电脑外请随身携带）</li>
+                    <li>观众寄存物品前请先接受安全检查，凭安检寄存票至寄物处办理寄存手续</li>
+                    <li>轮椅、婴儿童车免费租借服务。如需借用，请在南门寄存处缴纳300元押金或有效证件办理租借手续，仅限馆内使用</li>
+                    <li>提供针线、医药箱等服务</li>
+                    <li>失物招领（仅限南门寄物处）</li>
+                    <li>寄存物品逾期不取，本单位将依法自行处置</li>
+                </ul>
+            </div>
+            <div class="v3-btn" style="text-align: center; line-height: 1.15; margin-top: 0; margin-bottom: 20px; font-size: 24px;">
+                <a href="javascript:$('.v3-btn').hide();$('.v3').removeClass('v3');" class="site-link" title="展开">
+                    <span class="iconfont icon-angle-down"></span>
+                </a>
+            </div>
+            <div class="visit-content v3">
+                <div class="title">餐饮：</div>
+                <ul class="site-list disc-list">
+                    <li>
+                        上博餐厅<br>
+                        位于上海博物馆南门内侧，提供中西式简餐服务<br>
+                        服务时间：11:00-14:00
+                    </li>
+                    <li>
+                        茶室<br>
+                        位于二楼幼韵轩，供应中国名茶、咖啡、果汁、瓶装饮料和点心<br>
+                        服务时间：9:00-16:30
+                    </li>
+                </ul>
+            </div>
+            <div class="visit-content v3">
+                <div class="title">导览：</div>
+                <ul class="site-list disc-list">
+                    <li>
+                        免费微信导览<br>
+                        提供免费的常设展览重点展品语音导览。<br>
+                        观众可关注上海博物馆微信公众号，通过菜单栏“GO上博-人广馆导览”获取。
+                    </li>
+                    <li>
+                        语音导览<br>
+                        提供中、英、法、日、德、韩、西班牙、意大利等语种。<br>
+                        中文数码机<br>
+                        成人版：20元/套，亲子版：20元/套，儿童版：10元/套，无需押金，需提供手机号和身份证。<br>
+                        外文数码机<br>
+                        租金40元/套，押金400元或50美元，或护照。<br>
+                        另外特别展览数码机单独出借。
+                    </li>
+                    <li>
+                        智慧导览<br>
+                        提供中文智能讲解导览服务，通过语音讲解、视频介绍、手绘故事、动画解析、探索解谜、游戏互动等帮助观众立体了解文物背景、趣味解读历史瑰宝<br>
+                        每套配备平板电脑、手持带和耳机。<br>
+                        租借费30元/套，无需押金，需提供手机号和身份证，可线上和线下办理租借。<br>
+                        也可通过我馆“上海博物馆”APP手机导览或微信小程序获取有关文物的更多信息。
+                    </li>
+                </ul>
+            </div>
+        
+        
+        
+    </div>
+    
+
+<div class="site-bottom site-m-bottom">
+    <div style="margin-bottom: 20px; text-align: center;">
+        <img src="site2/svg/logo2.svg" style="width: 25%; height: auto;" onload="SVGInject(this);">
+    </div>
+    <div class="share-list" style="margin-bottom: 20px; text-align: center;">
+        <a id="social-button1" href="javascript:void(0);" aria-label="微信" class="site-link hint--rounded hint--bottom-right social-button">
+            <span class="iconfont icon-wechat"></span>
+        </a>
+        <a href="https://weibo.com/u/6584156654" target="_blank" aria-label="微博" class="site-link hint--rounded hint--bottom-right social-button">
+            <span class="iconfont icon-weibo"></span>
+        </a>
+        <a href="https://www.xiaohongshu.com/user/profile/6159a5f0000000000201b661" target="_blank" aria-label="小红书" class="site-link hint--rounded hint--bottom-right social-button">
+            <span class="iconfont icon-xiaohongshu"></span>
+        </a>
+        <a href="https://space.bilibili.com/586852858" target="_blank" aria-label="哔哩哔哩" class="site-link hint--rounded hint--bottom-right social-button">
+            <span class="iconfont icon-bilibili"></span>
+        </a>
+        <a href="https://www.douyin.com/user/MS4wLjABAAAAvgW-hMLuZNKCgJaueieZXzqQrEeaAace1q-NmJlZ_oE" target="_blank" aria-label="抖音" class="site-link hint--rounded hint--bottom-right social-button">
+            <span class="iconfont icon-douyin"></span>
+        </a>
+        <a href="https://www.facebook.com/shanghaimuseum" target="_blank" aria-label="facebook" class="site-link hint--rounded hint--bottom-right social-button">
+            <span class="iconfont icon-facebook"></span>
+        </a>
+        <a href="https://twitter.com/ShanghaiMuseum" target="_blank" aria-label="Twitter" class="site-link hint--rounded hint--bottom-right social-button">
+            <span class="iconfont icon-new-twitter"></span>
+        </a>
+        <a href="https://www.instagram.com/theshanghaimuseum" target="_blank" aria-label="Instagram" class="site-link hint--rounded hint--bottom-right social-button">
+            <span class="iconfont icon-instagram"></span>
+        </a>
+        <a href="https://www.youtube.com/@theshanghaimuseum" target="_blank" aria-label="YouTube" class="site-link hint--rounded hint--bottom-right social-button">
+            <span class="iconfont icon-youtube"></span>
+        </a>
+    </div>
+    
+    <div style="line-height: 2; font-size: 12px; text-align: center;">
+        <a href="http://bszs.conac.cn/sitename?method=show&id=07B72AA371EE1206E053022819AC3D0C" target="_blank" class="site-link">
+            <img src="site/img/blue.png" style="height: 30px; vertical-align: middle;">
+        </a>
+        <a href="http://wza.isc.org.cn/rzpt/bsgl/dt/20250124/3824.html" target="_blank" class="site-link" title="适老化标识">
+            <img src="site2/img/a11y-logo-1.png" style="height: 25px; vertical-align: middle;" alt="适老化标识">
+        </a>
+        Copyright &copy; 2015 ShanghaiMuseum.net<br>
+        上海博物馆 版权所有<br>
+        <a href="http://www.beian.gov.cn/portal/registerSystemInfo?recordcode=31010102006901" target="_blank" class="site-link">
+            <img src="https://www.dpm.org.cn/static/themes/image/ico.png" style="height: 20px; vertical-align: middle;">
+        </a>
+        沪公网安备31010102006901号<br>
+        <a href="https://beian.miit.gov.cn" target="_blank" class="site-link">沪ICP备10003390号-4</a>
+    </div>
+    
+</div>
+<script src="site2/lib/mailchimp/mc-validate.js" type="text/javascript"></script>
+<script type="text/javascript">(function($) {window.fnames = new Array(); window.ftypes = new Array();fnames[0]='EMAIL';ftypes[0]='email';}(jQuery));var $mcj = jQuery.noConflict(true);</script>
+<script>
+    tippy('#social-button1', {
+        theme: 'qrcode',
+        appendTo: document.body,
+        content: '<img src="site2/img/wechat-qrcode.png" style="display: block; width: 200px;">',
+        allowHTML: true,
+        interactive: true,
+        trigger: 'click'
+    });
+</script>
+<script src="//jhelper.shanghai.gov.cn/publicJS/242006901.js"></script>
+<script src="site2/js/aria.js"></script>
+
+
+
+    <script>
+        if (aria.status()) {
+            adjustForMobileAria();
+        }
+    </script>
+
+    <script>
+        const equipmentSwitch = function(target) {
+            $target = $(target);
+            $target.siblings().removeClass('active');
+            $target.addClass('active');
+        };
+
+        if (reqParams.scrollTarget) {
+            sectionScrollTo(reqParams.scrollTarget);
+        }
+    </script>
+</body>
+</html>

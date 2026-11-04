@@ -1,0 +1,116 @@
+[
+  {
+    "id": "answer-01",
+    "question": "上海博物馆人民广场馆周一开门吗？",
+    "reference": "除国定节假日外，上海博物馆人民广场馆每周一闭馆。常规开放时间为9:00至17:00，15:00后停止入场。",
+    "referenceContexts": [
+      "常规（除国定节假日外）：9:00–17:00，15:00后停止入场；每周一闭馆。"
+    ],
+    "goldDocIds": ["kb.poi.shanghai-museum.visit"]
+  },
+  {
+    "id": "answer-02",
+    "question": "上海博物馆人民广场馆最晚什么时候入场？",
+    "reference": "常规日15:00后停止入场；日场连夜场开放至21:00时，19:00停止入场。",
+    "referenceContexts": [
+      "常规（除国定节假日外）：9:00–17:00，15:00后停止入场。",
+      "夜场：日场连夜场为9:00–21:00，19:00停止入场。"
+    ],
+    "goldDocIds": ["kb.poi.shanghai-museum.visit"]
+  },
+  {
+    "id": "answer-03",
+    "question": "上海博物馆现在是不是可以免费直接进？",
+    "reference": "不是。特展期间参观需先预约购票，并非全时段免费开放；具体票价官方页面未列出。残障人士凭有效证件可免票。",
+    "referenceContexts": [
+      "特展期间参观需先预约购票，并非全时段免费开放。",
+      "残障人士凭本人有效证件可免票入馆。"
+    ],
+    "goldDocIds": ["kb.poi.shanghai-museum.intro", "kb.poi.shanghai-museum.visit"]
+  },
+  {
+    "id": "answer-04",
+    "question": "散客怎么预约上海博物馆人民广场馆？",
+    "reference": "散客可通过上海博物馆官方微信小程序预约购票，境外观众可通过trip.com预约购票。入馆时持有效证件原件，从武胜路南门散客通道核验。",
+    "referenceContexts": [
+      "散客可通过上海博物馆官方微信小程序、境外观众可通过trip.com进行预约购票。",
+      "持有效证件原件，从南门散客通道核验后入馆。"
+    ],
+    "goldDocIds": ["kb.poi.shanghai-museum.visit"]
+  },
+  {
+    "id": "answer-05",
+    "question": "20人的团队参观需要提前多久预约？",
+    "reference": "20人及以上团队须提前7天预约，且不含参观当天。",
+    "referenceContexts": [
+      "凡20人及以上（含20人）团队前来参观，须提前7天（不含当天）进行电话预约。"
+    ],
+    "goldDocIds": ["kb.poi.shanghai-museum.visit"]
+  },
+  {
+    "id": "answer-06",
+    "question": "人民广场馆在特展期间还展常设展吗？",
+    "reference": "不展。2026年7月9日至2027年11月14日特展期间，人民广场馆不再展出其他展览，常设展及其他特展应前往上海博物馆东馆参观。",
+    "referenceContexts": [
+      "上海博物馆人民广场馆将不再展出其他展览，常设展及其他特展可前往上海博物馆东馆参观。"
+    ],
+    "goldDocIds": ["kb.poi.shanghai-museum.visit", "kb.poi.shanghai-museum.intro"]
+  },
+  {
+    "id": "answer-07",
+    "question": "上海博物馆人民广场馆从哪里入馆？",
+    "reference": "场馆地址是上海市人民大道201号，从武胜路南门入馆；散客走南门散客通道。",
+    "referenceContexts": [
+      "上海市人民大道201号（从武胜路南门入馆）。",
+      "散客持有效证件原件，从南门散客通道核验后入馆。"
+    ],
+    "goldDocIds": ["kb.poi.shanghai-museum.visit"]
+  },
+  {
+    "id": "answer-08",
+    "question": "去上海博物馆人民广场馆坐地铁怎么走？",
+    "reference": "可乘地铁1号线、2号线或8号线到人民广场站，由1号口出站；也可乘14号线到大世界站，由4号口出站。",
+    "referenceContexts": [
+      "乘坐地铁一号线、二号线、八号线至人民广场站，由1号口出站。",
+      "14号线至大世界站，由4号口出站。"
+    ],
+    "goldDocIds": ["kb.poi.shanghai-museum.visit"]
+  },
+  {
+    "id": "answer-09",
+    "question": "逛上海博物馆人民广场馆建议留多久？",
+    "reference": "建议安排1.5至2.5小时。只看一小时只能粗看一轮，逐件阅读展签或看第二遍需要更长时间。",
+    "referenceContexts": [
+      "1.5–2.5小时。决定因素：是否看第二遍、是否逐件阅读展签、是否在馆内用餐。"
+    ],
+    "goldDocIds": ["kb.poi.shanghai-museum.highlight", "kb.poi.shanghai-museum.visit"]
+  },
+  {
+    "id": "answer-10",
+    "question": "上海博物馆人民广场馆里哪里可以吃饭休息？",
+    "reference": "馆内1F、2F、4F均设餐饮区域，但展厅、走廊、大堂和商店区域禁止饮食。",
+    "referenceContexts": [
+      "馆内1F、2F、4F均设餐饮区域，展厅、走廊、大堂、商店区域禁止饮食。"
+    ],
+    "goldDocIds": ["kb.poi.shanghai-museum.highlight", "kb.poi.shanghai-museum.intro"]
+  },
+  {
+    "id": "answer-11",
+    "question": "人民广场馆参观时拍照有什么限制？",
+    "reference": "馆内勿触摸展品、勿奔跑喧哗，勿使用闪光灯、自拍杆和支架类摄影器材；未经允许勿直播或录播。",
+    "referenceContexts": [
+      "馆内勿触摸展品、勿奔跑喧哗；勿使用闪光灯、自拍杆和支架类摄影器材拍照；未经允许勿在馆内直播或录播。"
+    ],
+    "goldDocIds": ["kb.poi.shanghai-museum.visit"]
+  },
+  {
+    "id": "answer-12",
+    "question": "上海博物馆人民广场馆现在的主要看点是什么？",
+    "reference": "特展期间人民广场馆只展当期大型特展，不再展出其他展览，可集中看这条展线；想看常设陈列应去东馆。",
+    "referenceContexts": [
+      "特展期间全馆只展这一个展览，观看目标单一而集中，适合专程为一个展而来。",
+      "特展期间本馆不再展出其他展览，等于一馆一展。"
+    ],
+    "goldDocIds": ["kb.poi.shanghai-museum.intro", "kb.poi.shanghai-museum.highlight"]
+  }
+]

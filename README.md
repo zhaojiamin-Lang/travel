@@ -11,7 +11,7 @@
 - 行程版本、单点替换、历史恢复和账号历史记录。
 - 浏览器前台定位、讲解语音和离线行程缓存。
 - 响应式 PWA 与基础离线访问。
-- H2 零配置演示模式与 PostgreSQL 正式配置。
+- PostgreSQL 作为唯一业务数据库，H2 仅用于自动化测试。
 
 ## 项目结构
 
@@ -25,9 +25,10 @@ docs/      产品需求与技术方案
 
 ### 1. 启动后端
 
-默认使用 H2 文件数据库，无需额外安装数据库：
+默认使用 PostgreSQL。首次启动前先启动数据库：
 
 ```powershell
+docker compose up -d postgres
 cd backend
 mvn spring-boot:run
 ```
@@ -65,13 +66,8 @@ npm run dev
 
 页面地址：`http://localhost:5173`
 
-## PostgreSQL 模式
-
-```powershell
-docker compose up -d postgres
-cd backend
-mvn spring-boot:run "-Dspring-boot.run.profiles=postgres"
-```
+默认连接：`jdbc:postgresql://localhost:5432/travel_guide`。可通过
+`DATABASE_URL`、`DATABASE_USERNAME` 和 `DATABASE_PASSWORD` 覆盖。
 
 ## 高德地图
 

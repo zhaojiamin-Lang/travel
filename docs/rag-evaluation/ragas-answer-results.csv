@@ -1,0 +1,3 @@
+﻿id,question,answer,citationCount,citationPrecision,factualClaimCount,unsupportedClaimCount,latencyMs,cacheHit,llmCalls
+answer-01,上海博物馆人民广场馆周一开门吗？,"- 常规（除国定节假日外）：9:00–17:00，15:00 后停止入场；每周一闭馆。 [E1]
+- 当日实时开放状态以官方渠道为准；本文档观测时点为 2026-10-29。 [E2]",2,1.0,4,0,113,False,0
