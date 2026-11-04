@@ -161,6 +161,52 @@ export interface GuideSession {
   currentPoi?: GuideContent
 }
 
+export interface AnswerCitation {
+  evidenceId: string
+  docId: string
+  docVersion: number
+  title: string
+  section: string
+  sourceName: string
+  sourceUrl?: string
+  sourceTier: string
+  dataConfidence: string
+  validFrom?: string
+  validTo?: string
+  quote: string
+  rawSnapshot?: string
+}
+
+export interface AnswerClaim {
+  claimId: string
+  text: string
+  citationIds: string[]
+  support: 'CITED' | 'ADVICE' | 'UNSUPPORTED'
+}
+
+export interface RagRetrievalMeta {
+  originalQuery: string
+  standaloneQuery: string
+  intent: string
+  channels: string[]
+  indexedDocuments: number
+  candidateCount: number
+  evidenceCount: number
+  latencyMs: number
+  cacheHit: boolean
+  llmCalls: number
+}
+
+export interface AskResult {
+  answer: string
+  followUps: string[]
+  claims: AnswerClaim[]
+  citations: AnswerCitation[]
+  uncertainties: string[]
+  conflicts: string[]
+  retrieval?: RagRetrievalMeta
+}
+
 export interface User {
   id: string
   email?: string
@@ -293,5 +339,59 @@ export interface ReplanProposal {
   summary: string
   changes: SemanticChange[]
   proposedPlan: Plan
+  createdAt: string
+}
+
+export type OrchestrationSurface = 'GENERAL' | 'PLAN' | 'GUIDE'
+
+export interface OrchestrationRequest {
+  message: string
+  conversationId?: string
+  planningRequestId?: string
+  planId?: string
+  guideSessionId?: string
+  surface?: OrchestrationSurface
+}
+
+export interface RoutingDecision {
+  primary: 'PLANNING' | 'GUIDE' | 'PREFERENCE' | 'CLARIFY'
+  secondary: string[]
+  confidence: number
+  reason: string
+  decidedBy: string
+}
+
+export interface PlanningAgentResult {
+  draft?: Draft
+  plan?: Plan
+  reply: string
+  needsInput: boolean
+}
+
+export interface OrchestrationResponse {
+  runId: string
+  createdAt: string
+  elapsedMs: number
+  routing: RoutingDecision
+  agentPath: string[]
+  preferences: unknown[]
+  primaryResult: PlanningAgentResult
+  supportingResults: unknown[]
+  notices: string[]
+}
+
+export interface PlanningRunStatus {
+  runId: string
+  workflowId: string
+  state: string
+  nextStepIndex: number
+  completedSteps: string[]
+  errorCode?: string
+  errorMessage?: string
+}
+
+export interface StoredPlanningRun {
+  runId: string
+  request: OrchestrationRequest
   createdAt: string
 }

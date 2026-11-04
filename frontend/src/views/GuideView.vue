@@ -32,16 +32,21 @@ import RouteMap from '../components/RouteMap.vue'
 import { api } from '../services/api'
 import { useTripStore } from '../services/tripStore'
 import type {
+  AnswerCitation,
   GuideContent,
   GuideSession,
   LocationCandidate,
   Plan,
   PlanItem,
+  RagRetrievalMeta,
 } from '../types'
 
 interface ChatMessage {
   role: 'user' | 'guide'
   text: string
+  citations?: AnswerCitation[]
+  uncertainties?: string[]
+  retrieval?: RagRetrievalMeta
 }
 
 const route = useRoute()
@@ -277,7 +282,13 @@ async function ask(value?: string) {
   await scrollChat()
   try {
     const result = await api.ask(session.value.id, text)
-    messages.value.push({ role: 'guide', text: result.answer })
+    messages.value.push({
+      role: 'guide',
+      text: result.answer,
+      citations: result.citations || [],
+      uncertainties: result.uncertainties || [],
+      retrieval: result.retrieval,
+    })
   } catch (reason) {
     error.value = reason instanceof Error ? reason.message : '暂时没能回答这个问题'
   } finally {
@@ -513,7 +524,38 @@ function currentCoordinate() {
               :class="`chat-message--${message.role}`"
             >
               <span v-if="message.role === 'guide'" class="chat-avatar">漫</span>
-              <p>{{ message.text }}</p>
+              <div class="chat-message__body">
+                <p>{{ message.text }}</p>
+                <div v-if="message.citations?.length" class="chat-citations">
+                  <span class="chat-citations__title">
+                    来源 · {{ message.citations.length }}
+                    <template v-if="message.retrieval">
+                      · {{ message.retrieval.latencyMs }} ms
+                      <template v-if="message.retrieval.cacheHit"> · 缓存命中</template>
+                    </template>
+                  </span>
+                  <template v-for="citation in message.citations" :key="citation.evidenceId">
+                    <a
+                      v-if="citation.sourceUrl"
+                      :href="citation.sourceUrl"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <b>[{{ citation.evidenceId }}]</b>
+                      <span>{{ citation.title }}</span>
+                      <small>{{ citation.dataConfidence }} · {{ citation.section }}</small>
+                    </a>
+                    <span v-else class="chat-citations__item">
+                      <b>[{{ citation.evidenceId }}]</b>
+                      <span>{{ citation.title }}</span>
+                      <small>{{ citation.dataConfidence }} · {{ citation.section }}</small>
+                    </span>
+                  </template>
+                </div>
+                <div v-if="message.uncertainties?.length" class="chat-uncertainty">
+                  {{ message.uncertainties.join('；') }}
+                </div>
+              </div>
             </div>
             <div v-if="asking" class="chat-message chat-message--guide">
               <span class="chat-avatar">漫</span>
@@ -1141,7 +1183,6 @@ function currentCoordinate() {
 }
 
 .chat-message p {
-  max-width: 80%;
   margin: 0;
   padding: 11px 13px;
   border-radius: 4px 13px 13px 13px;
@@ -1149,6 +1190,60 @@ function currentCoordinate() {
   color: var(--muted-strong);
   font-size: 10px;
   line-height: 1.7;
+}
+
+.chat-message__body {
+  display: flex;
+  max-width: 80%;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.chat-message--user .chat-message__body {
+  align-items: flex-end;
+}
+
+.chat-citations {
+  display: flex;
+  gap: 5px;
+  flex-direction: column;
+  padding: 8px 10px;
+  border-left: 2px solid rgba(201, 103, 67, 0.35);
+  background: rgba(255, 253, 247, 0.55);
+}
+
+.chat-citations__title {
+  color: #9a8f7d;
+  font-size: 7px;
+  letter-spacing: 0.08em;
+}
+
+.chat-citations a,
+.chat-citations__item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px 6px;
+  color: var(--forest);
+  font-size: 8px;
+  text-decoration: none;
+}
+
+.chat-citations small {
+  grid-column: 2;
+  overflow: hidden;
+  color: #a09b90;
+  font-size: 7px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-uncertainty {
+  padding: 7px 9px;
+  border-radius: 6px;
+  background: rgba(201, 103, 67, 0.08);
+  color: #985842;
+  font-size: 7px;
+  line-height: 1.5;
 }
 
 .chat-message--user {

@@ -1,8 +1,8 @@
 /**
  * 模块：路由表（router.ts）
  *
- * 职责：四条页面的路径映射与滚动复位——首页 `/`、行程 `/plan/:planId`、
- * 现场导游 `/guide/:planId`、账号与历史 `/account`。
+ * 职责：页面路径映射与滚动复位——首页 `/`、行程 `/plan/:planId`、
+ * 可恢复规划 `/runs/:runId`、现场导游 `/guide/:planId`、账号与历史 `/account`。
  * 只有首页是静态引入，其余路由懒加载，首屏更轻。
  */
 import { createRouter, createWebHistory } from 'vue-router'
@@ -21,6 +21,11 @@ const router = createRouter({
       path: '/plan/:planId',
       name: 'plan',
       component: () => import('./views/PlanView.vue'),
+    },
+    {
+      path: '/runs/:runId',
+      name: 'planning-run',
+      component: () => import('./views/PlanningRunView.vue'),
     },
     {
       path: '/guide/:planId',

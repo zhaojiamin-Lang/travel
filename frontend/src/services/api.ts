@@ -12,9 +12,12 @@ import type {
   DayOptimization,
   Draft,
   ExecutionProgress,
+  AskResult,
   GuideSession,
   HistoryItem,
   LocationResult,
+  OrchestrationRequest,
+  OrchestrationResponse,
   Plan,
   PlanDiff,
   PlanExplanation,
@@ -22,11 +25,42 @@ import type {
   ReplanProposal,
   Poi,
   RollbackResult,
+  PlanningRunStatus,
   User,
   WeatherSnapshot,
 } from '../types'
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api'
+const VISITOR_ID_KEY = 'travel-visitor-id'
+
+function visitorId() {
+  const saved = localStorage.getItem(VISITOR_ID_KEY)
+  if (saved && /^usr_[a-f0-9]{32}$/.test(saved)) return saved
+  const random = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID().replaceAll('-', '')
+    : `${Date.now().toString(16)}${Math.random().toString(16).slice(2)}`.padEnd(32, '0').slice(0, 32)
+  const value = `usr_${random}`
+  localStorage.setItem(VISITOR_ID_KEY, value)
+  return value
+}
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message)
+    this.name = 'ApiError'
+  }
+}
+
+export function createPlanningRunId() {
+  const random = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`
+  const suffix = random.replaceAll('-', '').slice(0, 16)
+  return `run_${suffix}`
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
@@ -34,6 +68,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     credentials: 'same-origin',
     headers: {
       'Content-Type': 'application/json',
+      'X-Travel-Visitor-Id': visitorId(),
       ...(init?.headers || {}),
     },
   })
@@ -46,7 +81,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       // Keep the friendly fallback.
     }
-    throw new Error(message)
+    throw new ApiError(message, response.status)
   }
 
   return response.json() as Promise<T>
@@ -59,6 +94,30 @@ export const api = {
 
   latestWeather() {
     return request<WeatherSnapshot>('/weather/latest')
+  },
+
+  startPlanningRun(runId: string, payload: OrchestrationRequest) {
+    return request<OrchestrationResponse>('/orchestration/runs', {
+      method: 'POST',
+      headers: { 'X-Run-Id': runId },
+      body: JSON.stringify(payload),
+    })
+  },
+
+  getPlanningRunStatus(runId: string) {
+    return request<PlanningRunStatus>(
+      `/orchestration/runs/${encodeURIComponent(runId)}`,
+    )
+  },
+
+  resumePlanningRun(runId: string, payload: OrchestrationRequest) {
+    return request<OrchestrationResponse>(
+      `/orchestration/runs/${encodeURIComponent(runId)}/resume`,
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+    )
   },
 
   optimizeDay(
@@ -101,18 +160,13 @@ export const api = {
     return request<Poi[]>('/pois')
   },
 
-  createDraft(prompt: string) {
-    return request<Draft>('/trips/draft', {
-      method: 'POST',
-      body: JSON.stringify({
-        prompt,
-        sessionId: localStorage.getItem('travel-session') || 'web-demo',
-      }),
-    })
-  },
-
   currentUser() {
-    return request<User>('/auth/me')
+    return request<User>('/auth/me').then((user) => {
+      if (user.guest && /^usr_[a-f0-9]{32}$/.test(user.id)) {
+        localStorage.setItem(VISITOR_ID_KEY, user.id)
+      }
+      return user
+    })
   },
 
   register(payload: { email: string; password: string; displayName: string }) {
@@ -152,19 +206,6 @@ export const api = {
     return request<Draft>(`/trips/${requestId}/requirements`, {
       method: 'PATCH',
       body: JSON.stringify(payload),
-    })
-  },
-
-  generatePlan(requestId: string) {
-    return request<Plan>(`/trips/${requestId}/plans`, {
-      method: 'POST',
-    })
-  },
-
-  updateFromNaturalLanguage(requestId: string, message: string) {
-    return request<Draft>(`/trips/${requestId}/messages`, {
-      method: 'POST',
-      body: JSON.stringify({ message }),
     })
   },
 
@@ -251,7 +292,7 @@ export const api = {
   },
 
   ask(sessionId: string, question: string) {
-    return request<{ answer: string; followUps: string[] }>(
+    return request<AskResult>(
       `/guide/sessions/${sessionId}/ask`,
       {
         method: 'POST',

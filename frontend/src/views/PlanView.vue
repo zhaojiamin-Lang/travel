@@ -4,8 +4,8 @@
   展示：按天的时间轴（景点/用餐/交通）、预算与校验问题、路线地图；
   操作：自然语言改需求并重新生成、切换历史版本与回滚、
         查看单点备选并替换、一键进入现场导游。
-  对应接口：getPlan / getVersions / restoreVersion / updateFromNaturalLanguage /
-           generatePlan / getAlternatives / swapPoi / createGuide。
+  对应接口：getPlan / getVersions / restoreVersion / startPlanningRun /
+           getPlanningRunStatus / getAlternatives / swapPoi / createGuide。
 -->
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
@@ -40,7 +40,7 @@ import {
 } from 'lucide-vue-next'
 import RouteMap from '../components/RouteMap.vue'
 import SiteHeader from '../components/SiteHeader.vue'
-import { api } from '../services/api'
+import { ApiError, api, createPlanningRunId } from '../services/api'
 import { useTripStore } from '../services/tripStore'
 import type {
   DayOptimization,
@@ -52,6 +52,7 @@ import type {
   PlanItem,
   Poi,
   ReplanProposal,
+  OrchestrationRequest,
   WeatherSnapshot,
 } from '../types'
 
@@ -267,21 +268,52 @@ async function refinePlan() {
 
   refining.value = true
   error.value = ''
+  let activeRunId = ''
   try {
     const normalizedMessage = normalizeIntent(intentPreview.value, refineText.value)
-    const updated = await api.updateFromNaturalLanguage(plan.value.requestId, normalizedMessage)
-    if (updated.missingFields.length) {
-      error.value = '还需要补充：' + updated.missingFields.join('、')
+    const request: OrchestrationRequest = {
+      message: normalizedMessage,
+      conversationId: `plan-${plan.value.id}`,
+      planningRequestId: plan.value.requestId,
+      planId: plan.value.id,
+      surface: 'PLAN',
+    }
+    const runId = createPlanningRunId()
+    activeRunId = runId
+    tripStore.rememberPlanningRun({
+      runId,
+      request,
+      createdAt: new Date().toISOString(),
+    })
+    const response = await api.startPlanningRun(runId, request)
+    const result = response.primaryResult
+    if (result.plan) {
+      tripStore.forgetPlanningRun(runId)
+      applyPlan(result.plan)
+      refineText.value = ''
+      intentPreview.value = null
+      versions.value = await api.getVersions(result.plan.requestId)
+      feedback.value = '已根据你的修改生成新版本。'
       return
     }
-    const next = await api.generatePlan(updated.requestId)
-    applyPlan(next)
-    refineText.value = ''
-    intentPreview.value = null
-    versions.value = await api.getVersions(next.requestId)
-    feedback.value = '已根据你的修改生成新版本。'
+    if (!response.agentPath.includes('PLANNING')) {
+      tripStore.forgetPlanningRun(runId)
+      error.value = result.reply
+      return
+    }
+    const runStatus = await api.getPlanningRunStatus(runId)
+    if (runStatus.state === 'SUCCEEDED' && result.needsInput) {
+      error.value = '修改后的需求仍缺少必要信息，请回到首页补充。'
+      return
+    }
+    await router.push({ name: 'planning-run', params: { runId } })
   } catch (reason) {
     error.value = reason instanceof Error ? reason.message : '修改行程失败'
+    if (activeRunId && (!(reason instanceof ApiError) || reason.status >= 500)) {
+      await router.push({ name: 'planning-run', params: { runId: activeRunId } })
+    } else if (activeRunId) {
+      tripStore.forgetPlanningRun(activeRunId)
+    }
   } finally {
     refining.value = false
   }
@@ -416,6 +448,7 @@ async function replacePoi(poi: Poi) {
 
 async function startGuide(poiId?: string) {
   if (!plan.value) return
+  error.value = ''
   try {
     const session = await api.createGuide(plan.value.id)
     localStorage.setItem('guide-session-id', session.id)
@@ -445,7 +478,7 @@ function goHome() {
       <p>正在整理你的城市漫游...</p>
     </div>
 
-    <div v-else-if="error || !plan" class="plan-error page-shell">
+    <div v-else-if="!plan" class="plan-error page-shell">
       <span><Info :size="23" /></span>
       <h1>这份行程暂时走丢了</h1>
       <p>{{ error || '请返回首页重新生成一份行程。' }}</p>
@@ -518,6 +551,11 @@ function goHome() {
           <CheckCircle2 :size="16" />
           <span>{{ feedback }}</span>
           <button type="button" aria-label="关闭提示" @click="feedback = ''"><X :size="14" /></button>
+        </div>
+        <div v-if="error" class="feedback-banner feedback-banner--error" role="alert">
+          <Info :size="16" />
+          <span>{{ error }}</span>
+          <button type="button" aria-label="关闭错误提示" @click="error = ''"><X :size="14" /></button>
         </div>
 
         <div class="plan-layout">
@@ -743,7 +781,6 @@ function goHome() {
                   </template>
                 </span>
               </div>
-              <p v-if="error" class="refine-error">{{ error }}</p>
               <div class="refine-chips">
                 <button type="button" @click="refineText = '第二天轻松一点'">第二天轻松点</button>
                 <button type="button" @click="refineText = '预算改成 2800 元'">降低预算</button>
@@ -1325,6 +1362,12 @@ function goHome() {
   background: transparent;
   color: inherit;
   cursor: pointer;
+}
+
+.feedback-banner--error {
+  border-color: rgba(177, 91, 57, 0.18);
+  background: rgba(205, 120, 82, 0.09);
+  color: #89482f;
 }
 
 .plan-layout {
@@ -1932,13 +1975,6 @@ function goHome() {
 .intent-preview svg {
   flex: 0 0 auto;
   color: var(--clay);
-}
-
-.refine-error {
-  margin: 8px 0 0;
-  color: #9e4d33;
-  font-size: 8px;
-  line-height: 1.5;
 }
 
 .refine-chips button {

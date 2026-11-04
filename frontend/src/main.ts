@@ -8,9 +8,15 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
+import { api } from './services/api'
 import './styles/global.css'
 
 createApp(App).use(createPinia()).use(router).mount('#app')
+
+// 首次访问时把服务端游客 ID 固化到本地，应用重启后仍能继续操作已有行程。
+api.currentUser().catch(() => {
+  // 页面仍可在离线或后端暂时不可用时读取本地缓存。
+})
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {

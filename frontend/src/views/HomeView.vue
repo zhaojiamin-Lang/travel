@@ -2,9 +2,9 @@
   模块：首页 / 需求入口（views/HomeView.vue）
   职责：整条链路的起点。
   1) 首屏展示品牌、能力说明与精选景点（读 api.bootstrap 与 POI）；
-  2) 用户用一句话描述旅行想法 -> api.createDraft 起稿；
+  2) 用户用一句话描述旅行想法 -> api.startPlanningRun 创建可恢复任务；
   3) 缺字段时在页面补 Slot（日期、天数、人数、预算、节奏）-> api.updateRequirements；
-  4) api.generatePlan 生成行程后跳转 /plan/:planId。
+  4) 成功载入行程；暂停或断网时进入 /runs/:runId 继续恢复。
   本页只管表单与提示，生成逻辑全在后端。
 -->
 <script setup lang="ts">
@@ -15,15 +15,23 @@ import {
   CalendarDays,
   Check,
   Compass,
+  Clock3,
   MapPin,
   Route,
   Sparkles,
   Users,
 } from 'lucide-vue-next'
 import SiteHeader from '../components/SiteHeader.vue'
-import { api } from '../services/api'
+import { ApiError, api, createPlanningRunId } from '../services/api'
 import { useTripStore } from '../services/tripStore'
-import type { Draft } from '../types'
+import type {
+  Draft,
+  OrchestrationRequest,
+  OrchestrationResponse,
+  PlanningAgentResult,
+  PlanningRunStatus,
+  StoredPlanningRun,
+} from '../types'
 
 const router = useRouter()
 const tripStore = useTripStore()
@@ -35,6 +43,9 @@ const error = ref('')
 const draft = ref<Draft | null>(null)
 const bootstrapLoading = ref(true)
 const bootstrapError = ref('')
+const pendingRun = ref<StoredPlanningRun | null>(null)
+const pendingStatus = ref<PlanningRunStatus | null>(null)
+const recoveryLoading = ref(false)
 
 const preferences = reactive<{
   city: string
@@ -56,6 +67,14 @@ const preferences = reactive<{
 
 const bootstrap = computed(() => tripStore.bootstrap)
 const currentYear = new Date().getFullYear()
+const pendingStateLabel = computed(() => {
+  const labels: Record<string, string> = {
+    SUSPENDED: '规划已暂停，可继续',
+    FAILED: '上次规划未完成',
+    SUCCEEDED: '上次规划已完成',
+  }
+  return labels[pendingStatus.value?.state || ''] || '有规划任务正在运行'
+})
 
 onMounted(async () => {
   try {
@@ -65,7 +84,7 @@ onMounted(async () => {
   } finally {
     bootstrapLoading.value = false
   }
-
+  await refreshPendingRun()
 })
 
 function choosePrompt(value: string) {
@@ -77,24 +96,15 @@ async function beginPlanning() {
   if (!prompt.value.trim() || loading.value) return
   error.value = ''
   loading.value = true
+  let runId = ''
   try {
-    const result = await api.createDraft(prompt.value)
-    draft.value = result
-    preferences.city = result.city || ''
-    preferences.days = result.days ?? null
-    preferences.people = result.people ?? null
-    preferences.budget = result.budget ?? null
-    preferences.pace = result.pace || 'RELAXED'
-    preferences.noSpicy = result.noSpicy ?? true
-    preferences.startDate = result.startDate || ''
-
-    if (result.missingFields.length > 0) {
-      slotOpen.value = true
-    } else {
-      await generatePlan(result.requestId)
-    }
+    const request = planningRequest(prompt.value.trim())
+    runId = createPlanningRunId()
+    rememberRun(runId, request)
+    const response = await api.startPlanningRun(runId, request)
+    await handlePlanningResponse(response)
   } catch (reason) {
-    error.value = reason instanceof Error ? reason.message : '生成需求时出了点问题'
+    await handlePlanningFailure(reason, runId)
   } finally {
     loading.value = false
   }
@@ -108,6 +118,7 @@ async function fillAndGenerate() {
   }
   error.value = ''
   loading.value = true
+  let runId = ''
   try {
     await api.updateRequirements(draft.value.requestId, {
       city: preferences.city,
@@ -118,19 +129,155 @@ async function fillAndGenerate() {
       pace: preferences.pace,
       noSpicy: preferences.noSpicy,
     })
-    await generatePlan(draft.value.requestId)
+    const request = planningRequest(completedPrompt(), draft.value.requestId)
+    runId = createPlanningRunId()
+    rememberRun(runId, request)
+    const response = await api.startPlanningRun(runId, request)
+    await handlePlanningResponse(response)
   } catch (reason) {
-    error.value = reason instanceof Error ? reason.message : '生成行程时出了点问题'
+    await handlePlanningFailure(reason, runId)
   } finally {
     loading.value = false
   }
 }
 
-async function generatePlan(requestId: string) {
-  const plan = await api.generatePlan(requestId)
-  tripStore.rememberPlan(plan)
+async function handlePlanningResponse(response: OrchestrationResponse) {
+  const result = response.primaryResult
+  applyDraft(result)
+  if (result.plan) {
+    await finishPlan(response.runId, result)
+    return
+  }
+  if (!response.agentPath.includes('PLANNING')) {
+    tripStore.forgetPlanningRun(response.runId)
+    pendingRun.value = null
+    pendingStatus.value = null
+    error.value = result.reply
+    return
+  }
+
+  const runStatus = await api.getPlanningRunStatus(response.runId)
+  pendingRun.value = tripStore.planningRun(response.runId)
+  pendingStatus.value = runStatus
+  if (runStatus.state === 'SUCCEEDED' && !result.needsInput) {
+    error.value = '规划任务已完成，但没有返回可用行程。'
+    return
+  }
+  if (runStatus.state !== 'SUCCEEDED' || ["SUSPENDED", "FAILED"].includes(runStatus.state)) {
+    await openPlanningRun(response.runId)
+    return
+  }
+
+  tripStore.forgetPlanningRun(response.runId)
+  pendingRun.value = null
+  pendingStatus.value = null
+  slotOpen.value = result.needsInput
+}
+
+async function finishPlan(runId: string, result: PlanningAgentResult) {
+  if (!result.plan) return
+  tripStore.rememberPlan(result.plan)
+  tripStore.forgetPlanningRun(runId)
   slotOpen.value = false
-  await router.push({ name: 'plan', params: { planId: plan.id } })
+  pendingRun.value = null
+  pendingStatus.value = null
+  await router.push({ name: 'plan', params: { planId: result.plan.id } })
+}
+
+function applyDraft(result: PlanningAgentResult) {
+  if (!result.draft) return
+  draft.value = result.draft
+  preferences.city = result.draft.city || preferences.city
+  preferences.days = result.draft.days ?? preferences.days
+  preferences.people = result.draft.people ?? preferences.people
+  preferences.budget = result.draft.budget ?? preferences.budget
+  preferences.pace = result.draft.pace || preferences.pace
+  preferences.noSpicy = result.draft.noSpicy ?? preferences.noSpicy
+  preferences.startDate = result.draft.startDate || preferences.startDate
+}
+
+function planningRequest(
+  message: string,
+  planningRequestId?: string,
+): OrchestrationRequest {
+  return {
+    message,
+    conversationId: planningConversationId(),
+    planningRequestId,
+    surface: 'GENERAL',
+  }
+}
+
+function completedPrompt() {
+  const pace = preferences.pace === 'RELAXED' ? '轻松节奏' : '平衡节奏'
+  return [
+    prompt.value.trim(),
+    `按已确认条件规划：${preferences.city}，${preferences.startDate}出发`,
+    `${preferences.days}天，${preferences.people}人，总预算${preferences.budget}元`,
+    pace,
+    preferences.noSpicy ? '不吃辣' : '饮食不限',
+  ].join('；')
+}
+
+function planningConversationId() {
+  const saved = localStorage.getItem('travel-session')
+  if (saved) return saved
+  const value = `conversation_${createPlanningRunId().slice(4, 16)}`
+  localStorage.setItem('travel-session', value)
+  return value
+}
+
+function rememberRun(runId: string, request: OrchestrationRequest) {
+  const stored: StoredPlanningRun = {
+    runId,
+    request,
+    createdAt: new Date().toISOString(),
+  }
+  tripStore.rememberPlanningRun(stored)
+  pendingRun.value = stored
+}
+
+async function handlePlanningFailure(reason: unknown, runId: string) {
+  error.value = reason instanceof Error ? reason.message : '生成行程时出了点问题'
+  if (!runId) return
+  if (reason instanceof ApiError && reason.status < 500) {
+    tripStore.forgetPlanningRun(runId)
+    pendingRun.value = null
+    return
+  }
+  await openPlanningRun(runId)
+}
+
+async function refreshPendingRun() {
+  const latest = tripStore.latestPlanningRun()
+  if (!latest) return
+  pendingRun.value = latest
+  recoveryLoading.value = true
+  try {
+    pendingStatus.value = await api.getPlanningRunStatus(latest.runId)
+    if (pendingStatus.value.state === 'SUCCEEDED') {
+      pendingRun.value = latest
+    }
+  } catch (reason) {
+    if (reason instanceof ApiError && [403, 404].includes(reason.status)) {
+      tripStore.forgetPlanningRun(latest.runId)
+      pendingRun.value = null
+      pendingStatus.value = null
+    }
+  } finally {
+    recoveryLoading.value = false
+  }
+}
+
+async function openPlanningRun(runId: string) {
+  await router.push({ name: 'planning-run', params: { runId } })
+}
+
+function dismissPendingRun() {
+  if (!pendingRun.value) return
+  tripStore.forgetPlanningRun(pendingRun.value.runId)
+  pendingRun.value = null
+  pendingStatus.value = null
 }
 
 function scrollToPlanner() {
@@ -218,6 +365,38 @@ function useAvailableCity() {
       </section>
 
       <section id="planner" class="planner-wrap page-shell">
+        <aside
+          v-if="pendingRun"
+          class="planning-recovery"
+          aria-live="polite"
+        >
+          <span class="planning-recovery__icon">
+            <Clock3 :size="18" />
+          </span>
+          <div>
+            <small>RECOVERABLE PLANNING</small>
+            <strong>
+              {{ recoveryLoading ? '正在检查上次任务' : pendingStatus ? pendingStateLabel : '上次任务等待连接检查' }}
+            </strong>
+            <p>
+              {{
+                pendingStatus?.errorMessage
+                  || (!pendingStatus ? '网络暂不可用，原始请求已保存在本机。恢复连接后可继续检查。' : '')
+                  || '检查点保存在服务端，已完成的步骤不会重复执行。'
+              }}
+            </p>
+          </div>
+          <div class="planning-recovery__actions">
+            <button type="button" :disabled="recoveryLoading" @click="openPlanningRun(pendingRun.runId)">
+              查看状态
+              <ArrowRight :size="14" />
+            </button>
+            <button type="button" class="dismiss" @click="dismissPendingRun">
+              忽略
+            </button>
+          </div>
+        </aside>
+
         <div class="planner-card">
           <div class="planner-card__head">
             <div>
@@ -743,6 +922,75 @@ main,
   margin-top: 26px;
 }
 
+.planning-recovery {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  margin: 0 10px 10px;
+  padding: 13px 14px;
+  border: 1px solid rgba(66, 103, 81, 0.14);
+  border-radius: 14px;
+  background: rgba(194, 215, 194, 0.26);
+}
+
+.planning-recovery__icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(60, 103, 77, 0.1);
+  color: var(--forest);
+}
+
+.planning-recovery small {
+  color: #748679;
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+}
+
+.planning-recovery strong {
+  display: block;
+  margin-top: 3px;
+  color: var(--forest);
+  font-size: 11px;
+}
+
+.planning-recovery p {
+  margin: 4px 0 0;
+  color: var(--muted-strong);
+  font-size: 8px;
+  line-height: 1.55;
+}
+
+.planning-recovery__actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.planning-recovery__actions button {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 11px;
+  border: 1px solid rgba(51, 87, 67, 0.14);
+  border-radius: 999px;
+  background: #fffdf8;
+  color: var(--forest);
+  font-size: 8px;
+  cursor: pointer;
+}
+
+.planning-recovery__actions button.dismiss {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+
 .planner-card {
   padding: 21px 24px 18px;
   border: 1px solid rgba(255, 255, 255, 0.8);
@@ -750,6 +998,18 @@ main,
   background: rgba(255, 253, 247, 0.78);
   box-shadow: 0 30px 70px rgba(43, 61, 49, 0.12);
   backdrop-filter: blur(24px);
+}
+
+@media (max-width: 620px) {
+  .planning-recovery {
+    grid-template-columns: auto minmax(0, 1fr);
+    margin-inline: 0;
+  }
+
+  .planning-recovery__actions {
+    grid-column: 2;
+    justify-content: flex-start;
+  }
 }
 
 .planner-card__head,

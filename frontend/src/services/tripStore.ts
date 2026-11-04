@@ -8,11 +8,23 @@
  */
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { Bootstrap, Plan } from '../types'
+import type { Bootstrap, Plan, StoredPlanningRun } from '../types'
+
+const PLANNING_RUNS_KEY = 'planning-runs'
+
+function savedPlanningRuns(): Record<string, StoredPlanningRun> {
+  try {
+    return JSON.parse(localStorage.getItem(PLANNING_RUNS_KEY) || '{}') as
+      Record<string, StoredPlanningRun>
+  } catch {
+    return {}
+  }
+}
 
 export const useTripStore = defineStore('trip', () => {
   const plan = ref<Plan | null>(null)
   const bootstrap = ref<Bootstrap | null>(null)
+  const planningRuns = ref<Record<string, StoredPlanningRun>>(savedPlanningRuns())
 
   function rememberPlan(nextPlan: Plan) {
     plan.value = nextPlan
@@ -35,5 +47,41 @@ export const useTripStore = defineStore('trip', () => {
     }
   }
 
-  return { plan, bootstrap, rememberPlan, loadPlan, cachedPlan }
+  function rememberPlanningRun(run: StoredPlanningRun) {
+    planningRuns.value = {
+      ...planningRuns.value,
+      [run.runId]: run,
+    }
+    localStorage.setItem(PLANNING_RUNS_KEY, JSON.stringify(planningRuns.value))
+  }
+
+  function planningRun(runId: string) {
+    return planningRuns.value[runId] || null
+  }
+
+  function latestPlanningRun() {
+    return Object.values(planningRuns.value).sort((left, right) =>
+      right.createdAt.localeCompare(left.createdAt),
+    )[0] || null
+  }
+
+  function forgetPlanningRun(runId: string) {
+    const next = { ...planningRuns.value }
+    delete next[runId]
+    planningRuns.value = next
+    localStorage.setItem(PLANNING_RUNS_KEY, JSON.stringify(next))
+  }
+
+  return {
+    plan,
+    bootstrap,
+    planningRuns,
+    rememberPlan,
+    loadPlan,
+    cachedPlan,
+    rememberPlanningRun,
+    planningRun,
+    latestPlanningRun,
+    forgetPlanningRun,
+  }
 })
