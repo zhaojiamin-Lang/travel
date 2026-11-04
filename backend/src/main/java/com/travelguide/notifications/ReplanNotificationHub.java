@@ -11,7 +11,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -52,13 +51,8 @@ public class ReplanNotificationHub {
     }
 
     public void broadcastProposal(ProposalNotification proposal) {
-        List<SseEmitter> global = planEmitters.getOrDefault("all", new CopyOnWriteArrayList<>());
         List<SseEmitter> specific = planEmitters.getOrDefault(channel(proposal.planId()), new CopyOnWriteArrayList<>());
-
-        Set<SseEmitter> targets = ConcurrentHashMap.newKeySet();
-        targets.addAll(global);
-        targets.addAll(specific);
-        targets.forEach(emitter -> send(emitter, "replan-proposal", proposal));
+        specific.forEach(emitter -> send(emitter, "replan-proposal", proposal));
     }
 
     @Scheduled(fixedDelay = 15_000)
