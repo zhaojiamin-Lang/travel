@@ -5,7 +5,9 @@
   2) 用户用一句话描述旅行想法 -> api.startPlanningRun 创建可恢复任务；
   3) 缺字段时在页面补 Slot（日期、天数、人数、预算、节奏）-> api.updateRequirements；
   4) 成功载入行程；暂停或断网时进入 /runs/:runId 继续恢复。
-  本页只管表单与提示，生成逻辑全在后端。
+  5) 路由 Agent 判定为导游类语意（GUIDE）时，直接跳 /guide/:planId 并把原话带过去自动提问，
+     而不是把 GuideAgent 的“请先打开现场导游”当错误展示。
+  本页只管表单与跳转，意图识别和生成逻辑全在后端。
 -->
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
@@ -148,6 +150,12 @@ async function handlePlanningResponse(response: OrchestrationResponse) {
     await finishPlan(response.runId, result)
     return
   }
+  // 导游类语意：路由 Agent 判定为 GUIDE 时直接跳到现场导游模块，
+  // 而不是把 GuideAgent 的“请先打开现场导游”当成错误展示。
+  if (isGuideRouting(response)) {
+    await jumpToGuide(response)
+    return
+  }
   if (!response.agentPath.includes('PLANNING')) {
     tripStore.forgetPlanningRun(response.runId)
     pendingRun.value = null
@@ -172,6 +180,35 @@ async function handlePlanningResponse(response: OrchestrationResponse) {
   pendingRun.value = null
   pendingStatus.value = null
   slotOpen.value = result.needsInput
+}
+
+function isGuideRouting(response: OrchestrationResponse) {
+  return response.routing?.primary === 'GUIDE' || response.agentPath.includes('GUIDE')
+}
+
+async function jumpToGuide(response: OrchestrationResponse) {
+  const message = pendingRun.value?.request.message || prompt.value.trim()
+  const planId = latestPlanId()
+  tripStore.forgetPlanningRun(response.runId)
+  pendingRun.value = null
+  pendingStatus.value = null
+  slotOpen.value = false
+  error.value = ''
+  if (planId) {
+    await router.push({
+      name: 'guide',
+      params: { planId },
+      query: message ? { ask: message } : {},
+    })
+    return
+  }
+  error.value = '想听现场讲解的话，先在上面生成一份行程，我就能在景点里边走边讲。'
+}
+
+function latestPlanId(): string | null {
+  if (tripStore.plan?.id) return tripStore.plan.id
+  const saved = localStorage.getItem('last-plan-id')
+  return saved && saved.trim() ? saved : null
 }
 
 async function finishPlan(runId: string, result: PlanningAgentResult) {

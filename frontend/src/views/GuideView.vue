@@ -3,7 +3,8 @@
   职责：到了景点之后的即时助手。
   定位：浏览器 Geolocation 上报 -> 后端算出最近景点与置信度，低置信度时提示手选；
   讲解：按当前景点产出讲解文案，用 Web Speech API 朗读（可停止）；
-  追问：把问题发给 api.ask，后端优先走大模型，不可用时给确定性答案。
+  追问：把问题发给 api.ask，后端优先走大模型，不可用时给确定性答案；
+  首页跳转：支持 /guide/:planId?ask=... ，景点就绪后自动把用户原话发给导游。
   断网兜底：从 tripStore / localStorage 读缓存行程，至少还能看行程和讲解。
 -->
 <script setup lang="ts">
@@ -110,6 +111,17 @@ onMounted(async () => {
       plan.value.mapPoints[0]?.poiId
     if (initialPoi) {
       await selectPoi(initialPoi)
+    }
+
+    // 从首页跳转过来时可能带了一个待提问的问题（?ask=...），景点就绪后自动发出
+    const pendingAsk = typeof route.query.ask === 'string' ? route.query.ask.trim() : ''
+    if (pendingAsk && session.value) {
+      try {
+        await ask(pendingAsk)
+      } catch {
+        // ask 内部已经把错误写入页面提示，这里不再叠加
+      }
+      router.replace({ query: { ...route.query, ask: undefined } }).catch(() => {})
     }
   } catch (reason) {
     const cachedPlan = tripStore.cachedPlan(String(route.params.planId))

@@ -33,7 +33,8 @@ public class LlmIntentRouter implements IntentRouter {
     );
     private static final Set<String> GUIDE_TERMS = Set.of(
             "到了吗", "附近", "这里", "当前景点", "讲解", "导览", "下一站",
-            "还能看什么", "还能吃什么", "多少钱", "开放吗", "闭馆"
+            "还能看什么", "还能吃什么", "多少钱", "开放吗", "闭馆",
+            "导游", "讲解员", "边走边讲"
     );
     private static final Set<String> PREFERENCE_TERMS = Set.of(
             "喜欢", "偏好", "感兴趣", "不吃", "吃素", "清淡", "轻松",
